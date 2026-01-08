@@ -126,7 +126,7 @@ function startAnimation(canvas) {
     draw();
 }
 
-/* --- ENCRYPTION LOGIC --- */
+/* --- ENCRYPTION but with LOGIC --- */
 async function handleEncryption() {
     const pass = document.getElementById('encrypt-pass').value;
     if(!pass) return showToast("Enter a passphrase!");
