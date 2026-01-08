@@ -17,7 +17,7 @@ let morseSeq = [];
 let morseIdx = 0;
 let lastTick = 0;
 
-let state = { emo: 'serenity', int: 80, intent: '🤝', t: 0, secret: '👻' };
+let state = { emo: 'serenity', int: 80, intent: ['🤝'], t: 0, secret: '👻' };
 let showSecret = false;
 let inputs = { en: "", de: "" };
 
@@ -137,8 +137,9 @@ function runAnim(canvasId) {
 
         // Hidden Data (Micro dots)
         ctx.fillStyle = `hsla(${hueBase}, 100%, 50%, ${0.3 + pulse})`;
-        const intentIdx = EMOJIS.indexOf(state.intent) + 1;
-        for (let j = 0; j < intentIdx; j++) ctx.fillRect(10 + (j * 4), h - 6, 2 + (pulse * 4), 2 + (pulse * 4));
+        // Multi-Emoji support: Use length of array
+        const intentCount = Array.isArray(state.intent) ? state.intent.length : 1;
+        for (let j = 0; j < intentCount; j++) ctx.fillRect(10 + (j * 6), h - 8, 4 + (pulse * 2), 4 + (pulse * 2));
 
         ctx.lineWidth = 1.5 + (factor * 3) + (pulse * 2);
         ctx.lineCap = 'round';
@@ -308,13 +309,28 @@ async function handleDec() {
         document.getElementById('dec-input').style.display = 'none';
         document.getElementById('dec-output').style.display = 'flex';
         document.getElementById('res-emo').innerText = res.emo;
-        document.getElementById('res-int').innerText = res.intent;
+        // Handle array intent display
+        const displayIntent = Array.isArray(res.intent) ? res.intent.join('') : res.intent;
+        document.getElementById('res-int').innerText = displayIntent;
 
         runAnim('view-canvas');
 
         const c = document.getElementById('view-canvas');
         c.onmousedown = c.ontouchstart = () => showSecret = true;
         c.onmouseup = c.ontouchend = () => showSecret = false;
+
+        // --- AUDIO FIX ---
+        // Ensure audio context is ready and running
+        if (!audioSys.ctx || audioSys.ctx.state === 'suspended') {
+            audioSys.init();
+            audioSys.ctx.resume().then(() => {
+                audioSys.enabled = true; // Force enable for receiver
+                audioSys.main.gain.value = 0.3;
+                audioSys.update();
+            });
+        } else {
+            audioSys.update();
+        }
 
     } catch (e) { alert("ACCESS DENIED: WRONG KEY OR CONTEXT"); console.error(e); }
 }
@@ -356,14 +372,27 @@ window.addEventListener('DOMContentLoaded', () => {
             b.innerText = e;
             b.style.fontSize = "1rem"; b.style.padding = "5px";
             b.onclick = () => {
-                document.querySelectorAll('#intent-picker button').forEach(btn => btn.classList.remove('selected'));
-                b.classList.add('selected');
-                state.intent = e;
-                const intentName = Object.keys(INTENT_MAP).find(key => INTENT_MAP[key] === e) || 'E';
+                // Toggle Logic
+                const idx = state.intent.indexOf(e);
+                if (idx > -1) {
+                    // Remove if already selected (prevent empty list though)
+                    if (state.intent.length > 1) state.intent.splice(idx, 1);
+                } else {
+                    // Add if limit not reached
+                    if (state.intent.length < 5) state.intent.push(e);
+                }
+
+                // Update UI Visuals
+                document.querySelectorAll('#intent-picker button').forEach(btn => {
+                    btn.classList.toggle('selected', state.intent.includes(btn.innerText));
+                });
+
+                // Update State & Badge
+                const intentName = state.intent.map(i => Object.keys(INTENT_MAP).find(key => INTENT_MAP[key] === i) || 'E').join('');
                 morseSeq = getMorseSeq(intentName);
-                document.getElementById('badge-int').innerText = e;
+                document.getElementById('badge-int').innerText = state.intent.join('');
             };
-            if (e === '🤝') b.classList.add('selected');
+            if (state.intent.includes(e)) b.classList.add('selected');
             picker.appendChild(b);
         });
     }
