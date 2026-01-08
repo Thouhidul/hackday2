@@ -1,72 +1,217 @@
 :root {
-    --bg: #0a0a0a;
-    --accent: #00ff9d;
-    --surface: #1a1a1a;
-    --text: #ffffff;
-    --border: rgba(255,255,255,0.1);
+    --bg: #000;
+    --accent: #00ffcc;
+    --glass: rgba(15, 15, 15, 0.85);
 }
 
-body {
+body,
+html {
     background: var(--bg);
-    color: var(--text);
-    font-family: sans-serif;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0;
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-}
-
-.main-nav {
-    display: flex;
-    justify-content: space-between;
-    padding: 1rem 2rem;
-    border-bottom: 1px solid var(--border);
-}
-
-.app-container {
-    max-width: 450px;
-    margin: 2rem auto;
-    padding: 0 1rem;
-    width: 100%;
-}
-
-.canvas-wrapper {
-    width: 100%;
-    height: 300px;
-    background: #000;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    margin-bottom: 1.5rem;
+    padding: 0;
+    height: 100%;
     overflow: hidden;
 }
 
-canvas { width: 100%; height: 100%; display: block; }
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+}
 
-.selector-grid {
+/* The Visual Window */
+.canvas-wrapper {
+    flex-grow: 1;
+    position: relative;
+    background: #000;
+    overflow: hidden;
+}
+
+canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* FIXED: Small, clean labels instead of giant text */
+.status-overlay {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    right: 15px;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+}
+
+.mini-badge {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* UI Controls */
+.controls {
+    background: var(--glass);
+    padding: 20px;
+    border-top: 1px solid #222;
+    backdrop-filter: blur(20px);
+    z-index: 10;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
-    margin-bottom: 1rem;
+    margin-bottom: 12px;
+}
+
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 5px;
+    max-height: 70px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+    padding: 5px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
 }
 
 button {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: white;
-    padding: 12px;
-    border-radius: 8px;
+    background: #111;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 10px;
+    border-radius: 12px;
     cursor: pointer;
+    font-size: 1.1rem;
+    transition: 0.2s;
 }
 
-button.selected { border-color: var(--accent); background: rgba(0,255,157,0.1); }
+button.selected {
+    border-color: var(--accent);
+    background: rgba(0, 255, 204, 0.15);
+    box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+}
 
 .primary-btn {
     width: 100%;
     background: var(--accent);
-    color: black;
-    font-weight: bold;
-    padding: 1rem;
-    margin-top: 1rem;
+    color: #000;
+    font-weight: 800;
+    padding: 16px;
+    border: none;
+    border-radius: 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    letter-spacing: 1px;
 }
 
-.hidden { display: none !important; }
+input {
+    width: 100%;
+    padding: 12px;
+    background: #050505;
+    border: 1px solid #333;
+    color: #fff;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    outline: none;
+}
+
+.view {
+    display: none;
+    height: 100%;
+    flex-direction: column;
+}
+
+.view.active {
+    display: flex;
+}
+
+#copy-toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #000;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    display: none;
+    z-index: 100;
+}
+
+/* Emoji Pad & Secret Picker */
+.pass-pad {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.pass-key {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333;
+    font-size: 1.2rem;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.pass-key:active {
+    background: var(--accent);
+    color: #000;
+}
+
+.pass-display {
+    background: #000;
+    border: 1px solid #333;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    letter-spacing: 5px;
+    font-size: 1.2rem;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    color: var(--accent);
+}
+
+.secret-grid {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    margin-top: 10px;
+}
+
+.secret-opt {
+    font-size: 1.5rem;
+    padding: 5px;
+    opacity: 0.5;
+    cursor: pointer;
+    background: none;
+    border: none;
+    transition: 0.2s;
+}
+
+.secret-opt.selected {
+    opacity: 1;
+    transform: scale(1.2);
+    text-shadow: 0 0 10px #fff;
+}

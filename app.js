@@ -1,289 +1,449 @@
-const PALETTES = {
-    serenity: ['#00FFFF', '#0080FF', '#7FFFD4'],
-    joy: ['#FFD700', '#FF69B4', '#FF00FF'],
-    rage: ['#FF4500', '#FF0000', '#8B0000'],
-    grief: ['#4B0082', '#000000', '#2F4F4F']
+const EMOJIS = ["🤝", "👌", "🆘", "🏠", "⏳", "📞", "🍕", "😴", "❤️", "🏃", "🚨", "🎁", "🫂", "✅", "❓", "⚠️", "🕊️", "💪", "🌈", "📍", "🔒", "💰", "🔥", "🧊", "💊", "💬", "💀", "🤫", "👀", "🥂", "🦋", "🛸", "🌌", "🧬", "🌹", "💎"];
+const KEYS = ["🔑", "🎲", "🌲", "🌙", "☀️", "🍎", "🚗", "🐱", "👁️", "⚡", "💧", "🎵"];
+const SECRETS = ["👻", "👽", "🤖", "🤡", "👺", "🎃", "👾", "🦄", "🐲", "🎱", "👑", "💍"];
+
+const INTENT_MAP = { MEET: '🤝', OK: '👌', HELP: '🆘', SAFE: '🏠', WAIT: '⏳', CALL: '📞', FOOD: '🍕', SLEEP: '😴', LOVE: '❤️' };
+const MORSE = { 'A': ".-", 'B': "-...", 'C': "-.-.", 'D': "-..", 'E': ".", 'F': "..-.", 'G': "--.", 'H': "....", 'I': "..", 'J': ".---", 'K': "-.-", 'L': ".-..", 'M': "--", 'N': "-.", 'O': "---", 'P': ".--.", 'Q': "--.-", 'R': ".-.", 'S': "...", 'T': "-", 'U': "..-", 'V': "...-", 'W': ".--", 'X': "-..-", 'Y': "-.--", 'Z': "--..", '1': ".----", '2': "..---", '3': "...--", '4': "....-", '5': ".....", '6': "-....", '7': "--...", '8': "---..", '9': "----.", '0': "-----" };
+
+function getMorseSeq(str) {
+    return str.split('').map(c => MORSE[c.toUpperCase()] || '').join('   ').split('').flatMap(s => {
+        if (s === '.') return [1, 0];
+        if (s === '-') return [1, 1, 1, 0];
+        return [0, 0];
+    });
+}
+
+let morseSeq = [];
+let morseIdx = 0;
+let lastTick = 0;
+
+let state = { emo: 'serenity', int: 80, intent: '🤝', t: 0, secret: '👻' };
+let showSecret = false;
+let inputs = { en: "", de: "" };
+
+/* --- AUDIO SYSTEM --- */
+const audioSys = new class {
+    constructor() {
+        this.ctx = null; this.nodes = {}; this.enabled = false;
+    }
+    init() {
+        if (this.ctx) return;
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.main = this.ctx.createGain();
+        this.main.gain.value = 0;
+        this.main.connect(this.ctx.destination);
+
+        // Drone layers
+        this.o1 = this.mkOsc(); this.o2 = this.mkOsc();
+        this.lfo = this.mkOsc(true);
+        this.fil = this.ctx.createBiquadFilter();
+        this.fil.connect(this.main);
+        this.o1.g.connect(this.fil); this.o2.g.connect(this.fil);
+
+        this.update();
+    }
+    mkOsc(isLfo) {
+        const o = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        o.connect(g); o.start();
+        if (isLfo) g.gain.value = 100;
+        return { o, g };
+    }
+    toggle() {
+        if (!this.ctx) this.init();
+        this.enabled = !this.enabled;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        this.main.gain.setTargetAtTime(this.enabled ? 0.3 : 0, this.ctx.currentTime, 0.1);
+        return this.enabled;
+    }
+    update() {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const i = state.int / 100;
+
+        if (state.emo === 'serenity') {
+            this.tone(this.o1, 100, 'sine', t);
+            this.tone(this.o2, 150, 'sine', t);
+            this.fil.frequency.setTargetAtTime(400 + i * 400, t, 1);
+        } else if (state.emo === 'joy') {
+            this.tone(this.o1, 300 + i * 100, 'triangle', t);
+            this.tone(this.o2, 450 + i * 100, 'sine', t);
+            this.fil.frequency.setTargetAtTime(2000, t, 1);
+        } else if (state.emo === 'rage') {
+            this.tone(this.o1, 50, 'sawtooth', t);
+            this.tone(this.o2, 55 + i * 50, 'square', t);
+            this.fil.frequency.setTargetAtTime(3000 * i, t, 0.1);
+        } else {
+            this.tone(this.o1, 60, 'sine', t);
+            this.tone(this.o2, 120, 'triangle', t);
+            this.fil.frequency.setTargetAtTime(100, t, 2);
+        }
+    }
+    tone(n, f, type, t) {
+        n.o.frequency.setTargetAtTime(f, t, 1);
+        n.o.type = type;
+    }
 };
 
-const INTENT_MAP = { MEET: '🤝', OK: '👌', HELP: '🆘', SAFE: '🏠', WAIT: '⏳', CALL: '📞', FOOD: '🍕', SLEEP: '😴' };
+/* --- VISUAL ENGINE (Rainbow Liquid Motion) --- */
+function runAnim(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
 
-let appState = {
-    emotion: 'serenity', intensity: 50, intent: 'MEET', seed: Math.random()
-};
+    const resizeObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = entry.contentRect;
+            // Set actual canvas size to match display size * DPR
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
 
-let audioSys = null; // Global Audio System instance
-
-window.addEventListener('load', () => {
-    const obs = new ResizeObserver(entries => {
-        for (let e of entries) {
-            e.target.width = e.target.clientWidth;
-            e.target.height = e.target.clientHeight;
+            // Normalize coordinate system so drawing logic works on 1:1 pixels relative to CSS dimensions
+            ctx.scale(dpr, dpr);
         }
     });
-    obs.observe(document.getElementById('preview-canvas'));
-    obs.observe(document.getElementById('view-canvas'));
+    resizeObserver.observe(canvas);
 
-    initUI();
-    audioSys = new AudioSystem();
+    function draw() {
+        // If canvas is removed or hidden, pause loop provided it's not the preview which should run
+        if (!canvas.offsetParent) {
+            requestAnimationFrame(draw);
+            return;
+        }
 
-    if (window.location.hash) {
-        switchView('decrypt');
-    } else {
-        switchView('create');
-        startAnimation(document.getElementById('preview-canvas'));
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.width / dpr; // Logical width
+        const h = canvas.height / dpr; // Logical height
+
+        // Trail Effect
+        ctx.fillStyle = 'rgba(0,0,0,0.08)';
+        ctx.fillRect(0, 0, w, h);
+
+        // Morse Pulse Update
+        const now = Date.now();
+        let pulse = ((Math.sin(state.t * 3) + 1) / 2) * 0.5;
+
+        if (morseSeq.length > 0) {
+            if (now - lastTick > 200) {
+                lastTick = now;
+                morseIdx = (morseIdx + 1) % morseSeq.length;
+            }
+            if (morseSeq[morseIdx]) pulse = 1.0;
+        }
+
+        const factor = state.int / 100;
+        const hueBase = state.t * 40;
+
+        // Hidden Data (Micro dots)
+        ctx.fillStyle = `hsla(${hueBase}, 100%, 50%, ${0.3 + pulse})`;
+        const intentIdx = EMOJIS.indexOf(state.intent) + 1;
+        for (let j = 0; j < intentIdx; j++) ctx.fillRect(10 + (j * 4), h - 6, 2 + (pulse * 4), 2 + (pulse * 4));
+
+        ctx.lineWidth = 1.5 + (factor * 3) + (pulse * 2);
+        ctx.lineCap = 'round';
+
+        const centerX = w / 2;
+        const centerY = h / 2;
+        const lines = 40 + (factor * 40);
+
+        for (let i = 0; i < lines; i++) {
+            ctx.beginPath();
+            ctx.strokeStyle = `hsl(${(i * 8) + hueBase}, 100%, 60%)`;
+
+            const angle = (i / lines) * Math.PI * 2;
+            let x1, y1, x2, y2;
+
+            if (state.emo === 'serenity') {
+                const rad = (Math.min(w, h) * 0.4) * factor;
+                x1 = centerX + Math.sin(state.t + angle) * rad;
+                y1 = centerY + Math.cos(state.t * 0.3 + angle) * rad;
+                x2 = centerX + Math.sin(state.t * 0.5 + angle * 2) * (rad * 1.2);
+                y2 = centerY + Math.cos(state.t + angle) * (rad * 1.2);
+            } else if (state.emo === 'joy') {
+                const rad = (Math.min(w, h) * 0.5) * factor;
+                const p = Math.sin(state.t * 2) * 20;
+                x1 = centerX + Math.cos(angle + state.t) * (p + 10);
+                y1 = centerY + Math.sin(angle + state.t) * (p + 10);
+                x2 = centerX + Math.cos(angle - state.t) * (rad + p);
+                y2 = centerY + Math.sin(angle - state.t) * (rad + p);
+            } else if (state.emo === 'rage') {
+                x1 = Math.random() * w;
+                y1 = Math.random() * h;
+                x2 = x1 + (Math.random() - 0.5) * (300 * factor);
+                y2 = y1 + (Math.random() - 0.5) * (300 * factor);
+            } else {
+                const r = (i * 15 + state.t * 100) % (Math.max(w, h) * factor);
+                ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+            }
+
+            if (state.emo !== 'grief') {
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            } else {
+                ctx.stroke();
+            }
+        }
+
+        // Ghost Text Layer
+        if (state.secret && showSecret) {
+            ctx.save();
+            ctx.font = '80px serif';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(state.secret, w - 20, h - 20);
+            ctx.restore();
+        }
+
+        state.t += 0.015;
+        requestAnimationFrame(draw);
     }
-});
+    draw();
+}
 
-function initUI() {
-    document.getElementById('btn-open-key').onclick = () => document.getElementById('modal-key').style.display = 'block';
+/* --- UI HELPERS --- */
+function initPad(mode) {
+    const p = document.getElementById('pad-' + mode);
+    if (!p) return;
 
-    document.querySelectorAll('.emotion-btn').forEach(btn => {
-        btn.onclick = () => {
-            document.querySelectorAll('.emotion-btn').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-            btn.classList.add('selected');
-            appState.emotion = btn.dataset.emotion;
-            audioSys.update();
+    KEYS.forEach(k => {
+        const b = document.createElement('button');
+        b.className = 'pass-key'; b.innerText = k;
+        b.onclick = () => {
+            if (inputs[mode].length < 12) {
+                inputs[mode] += k;
+                updateDisp(mode);
+            }
         };
+        p.appendChild(b);
     });
+    const bk = document.createElement('button');
+    bk.className = 'pass-key'; bk.innerText = "⌫";
+    bk.style.color = "#ff4444";
+    bk.onclick = () => { inputs[mode] = inputs[mode].slice(0, -2); updateDisp(mode); };
+    p.appendChild(bk);
+}
 
-    document.querySelectorAll('.intent-btn').forEach(btn => {
-        btn.onclick = () => {
-            document.querySelectorAll('.intent-btn').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-            appState.intent = btn.dataset.intent;
-        };
-    });
-
-    document.getElementById('intensity').oninput = (e) => {
-        appState.intensity = e.target.value;
-        document.getElementById('intensity-val').innerText = e.target.value + '%';
-        audioSys.update();
-    };
-
-    document.getElementById('btn-goto-encrypt').onclick = () => switchView('encrypt');
-    document.getElementById('btn-back-create').onclick = () => switchView('create');
-    document.getElementById('btn-encrypt').onclick = handleEncryption;
-    document.getElementById('btn-decrypt').onclick = handleDecryption;
-    document.getElementById('btn-copy').onclick = () => {
-        document.getElementById('share-link').select();
-        document.execCommand('copy');
-        showToast("Link Copied!");
-    };
+function updateDisp(mode) {
+    const el = document.getElementById('disp-' + mode);
+    if (el) el.innerText = inputs[mode];
 }
 
 function switchView(id) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + id).classList.add('active');
+    if (id === 'create' || id === 'decrypt') audioSys.update();
 }
 
-/* --- PHYSICS ENGINE: THE EMOTION LOGIC --- */
-function startAnimation(canvas) {
-    const ctx = canvas.getContext('2d');
-    let t = 0;
+/* --- CRYPTO --- */
+const b64 = (b) => btoa(String.fromCharCode(...new Uint8Array(b)));
+const d64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 
-    const draw = () => {
-        if (!canvas.width) return requestAnimationFrame(draw);
-
-        ctx.fillStyle = 'rgba(0,0,0,0.15)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const colors = PALETTES[appState.emotion];
-        const factor = appState.intensity / 100;
-        const count = 6 + Math.floor(factor * 15);
-
-        // Intent Marks
-        ctx.fillStyle = colors[0];
-        const idx = Object.keys(INTENT_MAP).indexOf(appState.intent) + 1;
-        for (let j = 0; j < idx; j++) ctx.fillRect(15 + (j * 8), canvas.height - 20, 5, 5);
-
-        for (let i = 0; i < count; i++) {
-            ctx.fillStyle = colors[i % colors.length];
-            ctx.beginPath();
-            let x, y, size = 6;
-
-            if (appState.emotion === 'serenity') {
-                x = canvas.width / 2 + Math.sin(t + i) * (canvas.width / 3);
-                y = canvas.height / 2 + Math.cos(t * 0.3 + i) * (canvas.height / 4);
-                ctx.arc(x, y, 10 * factor + 5, 0, Math.PI * 2);
-            }
-            else if (appState.emotion === 'joy') {
-                x = canvas.width / 2 + Math.cos(t * 2 + i) * (80 * factor + i * 10);
-                y = canvas.height / 2 + Math.sin(t * 2 + i) * (80 * factor + i * 10);
-                ctx.arc(x, y, 8, 0, Math.PI * 2);
-            }
-            else if (appState.emotion === 'rage') {
-                x = canvas.width / 2 + (Math.random() - 0.5) * canvas.width * factor;
-                y = canvas.height / 2 + (Math.random() - 0.5) * canvas.height * factor;
-                ctx.moveTo(x, y);
-                ctx.lineTo(x + 15, y + 15);
-                ctx.lineTo(x - 15, y + 15);
-                ctx.closePath();
-            }
-            else if (appState.emotion === 'grief') {
-                x = (canvas.width / count) * i + Math.sin(t + i) * 10;
-                y = (t * 100 + i * 50) % canvas.height;
-                ctx.arc(x, y, 12 * (1 - factor * 0.5), 0, Math.PI * 2);
-            }
-            ctx.fill();
-        }
-        t += 0.01 + (factor * 0.04);
-        requestAnimationFrame(draw);
-    };
-    draw();
-}
-
-/* --- ENCRYPTION but with LOGIC --- */
-async function handleEncryption() {
-    const pass = document.getElementById('encrypt-pass').value;
-    if (!pass) return showToast("Enter a passphrase!");
-
-    const msg = JSON.stringify({ e: appState.emotion, i: appState.intensity, in: appState.intent, s: appState.seed });
-
+async function handleEnc() {
     try {
-        const salt = crypto.getRandomValues(new Uint8Array(16));
-        const iv = crypto.getRandomValues(new Uint8Array(12));
-        const enc = new TextEncoder();
-        const keyMat = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
-        const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" }, keyMat, { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
-        const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(msg));
+        const pass = inputs.en;
+        if (!pass || pass.length === 0) return alert("SELECT EMOJI KEYS First! 🔑");
 
-        const pkg = { c: b64(cipher), s: b64(salt), v: b64(iv) };
-        document.getElementById('share-link').value = window.location.origin + window.location.pathname + "#" + btoa(JSON.stringify(pkg));
-        document.getElementById('share-result').classList.remove('hidden');
-    } catch (e) { showToast("Error creating link"); }
+        console.log("Encrypting state:", state);
+
+        const data = new TextEncoder().encode(JSON.stringify(state));
+        let pack;
+
+        // CHECK FOR SECURE CONTEXT
+        if (window.crypto && crypto.subtle) {
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const kMat = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+            const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 10000, hash: "SHA-256" }, kMat, { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
+            const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data);
+            pack = { c: b64(cipher), s: b64(salt), v: b64(iv), m: 'secure' };
+        } else {
+            console.warn("Insecure Context - Using Demo Encryption");
+            pack = { c: btoa(JSON.stringify(state)), m: 'demo' };
+        }
+
+        const resArea = document.getElementById('result-area');
+        const linkInput = document.getElementById('final-link');
+
+        if (linkInput && resArea) {
+            linkInput.value = window.location.origin + window.location.pathname + '#' + encodeURIComponent(btoa(JSON.stringify(pack)));
+
+            // Show first so it has dimensions for scrolling
+            resArea.style.display = 'block';
+
+            // Auto focus and scroll
+            linkInput.select();
+            resArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+    } catch (e) {
+        alert("Encryption Error: " + e.message);
+        console.error(e);
+    }
 }
 
-async function handleDecryption() {
-    const pass = document.getElementById('decrypt-pass').value;
-    const hash = window.location.hash.substring(1);
+async function handleDec() {
     try {
-        const data = JSON.parse(atob(hash));
-        const enc = new TextEncoder();
-        const keyMat = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
-        const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: db64(data.s), iterations: 100000, hash: "SHA-256" }, keyMat, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
-        const dec = await crypto.subtle.decrypt({ name: "AES-GCM", iv: db64(data.v) }, key, db64(data.c));
-        const res = JSON.parse(new TextDecoder().decode(dec));
+        const pass = inputs.de;
+        const hashVal = window.location.hash.substring(1);
+        if (!hashVal) return;
 
-        appState = { emotion: res.e, intensity: res.i, intent: res.in, seed: res.s };
-        document.getElementById('decrypt-input-area').classList.add('hidden');
-        document.getElementById('decrypt-display-area').classList.remove('hidden');
-        document.getElementById('res-emotion').innerText = res.e === 'serenity' ? '🌊' : (res.e === 'joy' ? '✨' : (res.e === 'rage' ? '🔥' : '🌑'));
-        document.getElementById('res-intent').innerText = INTENT_MAP[res.in];
-        startAnimation(document.getElementById('view-canvas'));
-    } catch (e) { showToast("Wrong Passphrase!"); }
+        const pack = JSON.parse(atob(decodeURIComponent(hashVal)));
+        let res;
+
+        if (pack.m === 'secure') {
+            // Decrypt Secure
+            if (!crypto.subtle) throw new Error("Secure context required to decrypt.");
+            const kMat = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+            const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: d64(pack.s), iterations: 10000, hash: "SHA-256" }, kMat, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+            const dec = await crypto.subtle.decrypt({ name: "AES-GCM", iv: d64(pack.v) }, key, d64(pack.c));
+            res = JSON.parse(new TextDecoder().decode(dec));
+        } else {
+            // Decrypt Demo
+            res = JSON.parse(atob(pack.c));
+        }
+
+        state = { ...res, t: 0 };
+        document.getElementById('dec-input').style.display = 'none';
+        document.getElementById('dec-output').style.display = 'flex';
+        document.getElementById('res-emo').innerText = res.emo;
+        document.getElementById('res-int').innerText = res.intent;
+
+        runAnim('view-canvas');
+
+        const c = document.getElementById('view-canvas');
+        c.onmousedown = c.ontouchstart = () => showSecret = true;
+        c.onmouseup = c.ontouchend = () => showSecret = false;
+
+    } catch (e) { alert("ACCESS DENIED: WRONG KEY OR CONTEXT"); console.error(e); }
 }
 
-function b64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))); }
-function db64(str) { return new Uint8Array(atob(str).split("").map(c => c.charCodeAt(0))).buffer; }
-function showToast(m) {
-    const t = document.createElement('div');
-    t.style = "background: #333; color: var(--accent); padding: 10px 20px; border-radius: 20px; border: 1px solid #444; margin-top: 10px;";
-    t.innerText = m;
-    document.getElementById('toast-container').appendChild(t);
-    t.innerText = m;
-    document.getElementById('toast-container').appendChild(t);
-    setTimeout(() => t.remove(), 2500);
-}
+/* --- HELPERS & EXPORTS (MOVED AFTER FUNCTION DEFINITIONS) --- */
+window.switchView = switchView;
+window.handleEnc = handleEnc;
+window.handleDec = handleDec;
+window.appState = state; // Debug helper
 
-/* --- SONIC LANDSCAPES --- */
-class AudioSystem {
-    constructor() {
-        this.ctx = null;
-        this.nodes = {};
-        this.enabled = false;
-        this.initialized = false;
+/* --- INITIALIZATION --- */
+window.addEventListener('DOMContentLoaded', () => {
+    console.log("=== APP INITIALIZATION START ===");
+
+    initPad('en');
+    initPad('de');
+
+    // Secret Picker
+    const sp = document.getElementById('secret-picker');
+    if (sp) {
+        SECRETS.forEach(s => {
+            const b = document.createElement('button');
+            b.className = 'secret-opt'; b.innerText = s;
+            b.onclick = () => {
+                document.querySelectorAll('.secret-opt').forEach(btn => btn.classList.remove('selected'));
+                b.classList.add('selected');
+                state.secret = s;
+            };
+            if (s === '👻') b.classList.add('selected');
+            sp.appendChild(b);
+        });
     }
 
-    init() {
-        if (this.initialized) return;
-        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-
-        // Master Gain
-        this.nodes.master = this.ctx.createGain();
-        this.nodes.master.gain.value = 0.4;
-        this.nodes.master.connect(this.ctx.destination);
-
-        // Oscillators for drone layers
-        this.nodes.osc1 = this.createOsc();
-        this.nodes.osc2 = this.createOsc();
-        this.nodes.lfo = this.createOsc(true); // LFO
-
-        // Filter
-        this.nodes.filter = this.ctx.createBiquadFilter();
-        this.nodes.filter.connect(this.nodes.master);
-
-        this.nodes.osc1.gain.connect(this.nodes.filter);
-        this.nodes.osc2.gain.connect(this.nodes.filter);
-
-        this.initialized = true;
-        this.update();
-        console.log("Audio System Initialized");
+    // Intent Picker
+    const picker = document.getElementById('intent-picker');
+    if (picker) {
+        EMOJIS.forEach(e => {
+            const b = document.createElement('button');
+            b.innerText = e;
+            b.style.fontSize = "1rem"; b.style.padding = "5px";
+            b.onclick = () => {
+                document.querySelectorAll('#intent-picker button').forEach(btn => btn.classList.remove('selected'));
+                b.classList.add('selected');
+                state.intent = e;
+                const intentName = Object.keys(INTENT_MAP).find(key => INTENT_MAP[key] === e) || 'E';
+                morseSeq = getMorseSeq(intentName);
+                document.getElementById('badge-int').innerText = e;
+            };
+            if (e === '🤝') b.classList.add('selected');
+            picker.appendChild(b);
+        });
     }
 
-    createOsc(isLfo = false) {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.connect(gain);
-        osc.start();
-        return { osc, gain };
-    }
+    // Event Listeners
+    console.log("Initializing Event Listeners...");
 
-    toggle() {
-        if (!this.initialized) this.init();
-        this.enabled = !this.enabled;
-
-        if (this.ctx.state === 'suspended') this.ctx.resume();
-
-        const target = this.enabled ? 0.4 : 0;
-        this.nodes.master.gain.setTargetAtTime(target, this.ctx.currentTime, 0.1);
-
-        return this.enabled;
-    }
-
-    update() {
-        if (!this.initialized) return;
-
-        const now = this.ctx.currentTime;
-        const e = appState.emotion;
-        const i = appState.intensity / 100;
-
-        // Base configurations
-        if (e === 'serenity') {
-            this.ramp(this.nodes.osc1.osc.frequency, 150, 2);
-            this.ramp(this.nodes.osc2.osc.frequency, 200, 2);
-            this.nodes.osc1.osc.type = 'sine';
-            this.nodes.osc2.osc.type = 'sine';
-            this.ramp(this.nodes.filter.frequency, 800 * i + 200, 1);
-            this.nodes.lfo.osc.frequency.value = 0.5 * i; // Gentle modulation
+    document.querySelectorAll('.emo-btn').forEach(b => {
+        b.onclick = () => {
+            document.querySelectorAll('.emo-btn').forEach(btn => btn.classList.remove('selected'));
+            b.classList.add('selected');
+            state.emo = b.dataset.emo;
+            const badge = document.getElementById('badge-emo');
+            if (badge) badge.innerText = b.dataset.emo;
+            audioSys.update();
         }
-        else if (e === 'joy') {
-            this.ramp(this.nodes.osc1.osc.frequency, 300 + (i * 200), 0.5);
-            this.ramp(this.nodes.osc2.osc.frequency, 450 + (i * 200), 0.5);
-            this.nodes.osc1.osc.type = 'triangle';
-            this.nodes.osc2.osc.type = 'sine';
-            this.ramp(this.nodes.filter.frequency, 2000, 0.5);
-        }
-        else if (e === 'rage') {
-            this.ramp(this.nodes.osc1.osc.frequency, 50 + (i * 100), 0.1);
-            this.ramp(this.nodes.osc2.osc.frequency, 55 + (i * 105), 0.1); // Detuned
-            this.nodes.osc1.osc.type = 'sawtooth';
-            this.nodes.osc2.osc.type = 'square';
-            this.ramp(this.nodes.filter.frequency, 3000 * i, 0.1);
-        }
-        else if (e === 'grief') {
-            this.ramp(this.nodes.osc1.osc.frequency, 60, 3);
-            this.ramp(this.nodes.osc2.osc.frequency, 120, 3);
-            this.nodes.osc1.osc.type = 'sine';
-            this.nodes.osc2.osc.type = 'triangle';
-            this.ramp(this.nodes.filter.frequency, 100, 2);
-        }
+    });
 
-        // Modulation
-        this.nodes.lfo.gain.gain.value = 50 * i;
+    const intensitySlider = document.getElementById('intensity');
+    if (intensitySlider) {
+        intensitySlider.oninput = (e) => {
+            state.int = e.target.value;
+            audioSys.update();
+        };
     }
 
-    ramp(param, val, time) {
-        param.setTargetAtTime(val, this.ctx.currentTime, time);
+    const btnSound = document.getElementById('btn-sound');
+    if (btnSound) {
+        btnSound.onclick = (e) => {
+            const on = audioSys.toggle();
+            e.target.innerText = on ? '🔊' : '🔇';
+            e.target.style.borderColor = on ? 'var(--accent)' : '#333';
+        };
     }
-}
+
+    const gotoEnc = document.getElementById('goto-encrypt');
+    if (gotoEnc) {
+        gotoEnc.onclick = () => switchView('encrypt');
+        console.log("✓ Goto Encrypt button wired");
+    }
+
+    const doEnc = document.getElementById('do-encrypt');
+    if (doEnc) {
+        console.log("✓ Found encrypt button:", doEnc);
+
+        doEnc.onclick = (e) => {
+            e.preventDefault();
+            console.log("🔒 ENCRYPT BUTTON CLICKED!");
+            handleEnc();
+        };
+
+        console.log("✓ Encrypt button event listener attached");
+    } else {
+        console.error("✗ Encrypt button NOT FOUND");
+    }
+
+    const doDec = document.getElementById('do-decrypt');
+    if (doDec) {
+        doDec.onclick = handleDec;
+        console.log("✓ Decrypt button wired");
+    }
+
+    const copyBtn = document.getElementById('copy-btn');
+    if (copyBtn) {
+        copyBtn.onclick = () => {
+            const link = document.getElementById('final-link');
+            link.select(); link.setSelectionRange(0, 99999);
+            document.execCommand('copy');
+            const t = document.getElementById('copy-toast');
+            if (t) {
+                t.style.display = 'block';
+                setTimeout(() => t.style.display = 'none', 2000);
+            }
+        };
+        console.log("✓ Copy button wired");
+    }
+
+    // Start Logic
+    runAnim('preview-canvas');
+    if (window.location.hash) switchView('decrypt');
+
+    console.log("=== APP INITIALIZATION COMPLETE ===");
+});

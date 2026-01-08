@@ -5,167 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SilentSpeak | Supernova v6</title>
-    <style>
-        :root {
-            --bg: #000;
-            --accent: #00ffcc;
-            --glass: rgba(15, 15, 15, 0.85);
-        }
-
-        body,
-        html {
-            background: var(--bg);
-            color: #fff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        .app-container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            width: 100vw;
-        }
-
-        /* The Visual Window */
-        .canvas-wrapper {
-            flex-grow: 1;
-            position: relative;
-            background: #000;
-            overflow: hidden;
-        }
-
-        canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        /* FIXED: Small, clean labels instead of giant text */
-        .status-overlay {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            right: 15px;
-            display: flex;
-            justify-content: space-between;
-            pointer-events: none;
-        }
-
-        .mini-badge {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            letter-spacing: 1px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        /* UI Controls */
-        .controls {
-            background: var(--glass);
-            padding: 20px;
-            border-top: 1px solid #222;
-            backdrop-filter: blur(20px);
-            z-index: 10;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .emoji-grid {
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 5px;
-            max-height: 70px;
-            overflow-y: auto;
-            margin-bottom: 10px;
-            padding: 5px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-        }
-
-        button {
-            background: #111;
-            border: 1px solid #333;
-            color: #fff;
-            padding: 10px;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 1.1rem;
-            transition: 0.2s;
-        }
-
-        button.selected {
-            border-color: var(--accent);
-            background: rgba(0, 255, 204, 0.15);
-            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
-        }
-
-        .primary-btn {
-            width: 100%;
-            background: var(--accent);
-            color: #000;
-            font-weight: 800;
-            padding: 16px;
-            border: none;
-            border-radius: 14px;
-            font-size: 0.9rem;
-            cursor: pointer;
-            letter-spacing: 1px;
-        }
-
-        input {
-            width: 100%;
-            padding: 12px;
-            background: #050505;
-            border: 1px solid #333;
-            color: #fff;
-            border-radius: 10px;
-            margin-bottom: 10px;
-            outline: none;
-        }
-
-        .view {
-            display: none;
-            height: 100%;
-            flex-direction: column;
-        }
-
-        .view.active {
-            display: flex;
-        }
-
-        #copy-toast {
-            position: fixed;
-            bottom: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--accent);
-            color: #000;
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            display: none;
-            z-index: 100;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
     <div class="app-container">
+        <!-- CREATE VIEW -->
         <section id="view-create" class="view active">
             <div class="canvas-wrapper">
                 <canvas id="preview-canvas"></canvas>
@@ -193,13 +39,21 @@
             </div>
         </section>
 
+        <!-- ENCRYPT VIEW -->
         <section id="view-encrypt" class="view">
             <div class="controls" style="margin-top:auto; border-top:none;">
                 <h3 style="margin-bottom:20px; text-align:center">Protect with Passphrase</h3>
-                <input type="text" id="pass-en" placeholder="Enter password...">
-                <button id="do-encrypt" class="primary-btn">LOCK & CREATE</button>
-                <textarea id="secret-msg" placeholder="Embed a secret message (optional)..."
-                    style="width:100%; background:none; border:1px dashed #333; color:#aaa; margin-top:10px; padding:10px; border-radius:10px; font-family:inherit;"></textarea>
+
+                <div class="pass-display" id="disp-en"></div>
+                <div class="pass-pad" id="pad-en"></div>
+
+                <div style="text-align:center; margin-top:10px; opacity:0.7; font-size:0.8rem;">SELECT SECRET SIGIL
+                </div>
+                <div id="secret-picker" class="secret-grid"></div>
+
+                <button id="do-encrypt" class="primary-btn" style="margin-top:15px;">LOCK &
+                    CREATE</button>
+
                 <div id="result-area" style="display:none; margin-top:20px;">
                     <input type="text" id="final-link" readonly style="color:var(--accent)">
                     <button id="copy-btn" style="width:100%; background:#fff; color:#000; font-weight:bold;">COPY
@@ -211,11 +65,13 @@
             </div>
         </section>
 
+        <!-- DECRYPT VIEW -->
         <section id="view-decrypt" class="view">
             <div id="dec-input" class="controls" style="margin-top:auto;">
-                <h2 style="text-align:center">Decrypt Visual</h2>
-                <input type="text" id="pass-de" placeholder="Enter passphrase">
-                <button id="do-decrypt" class="primary-btn">UNLOCK STREAM</button>
+                <h2 style="text-align:center; margin-bottom:10px;">Unlock Visual</h2>
+                <div class="pass-display" id="disp-de"></div>
+                <div class="pass-pad" id="pad-de"></div>
+                <button id="do-decrypt" class="primary-btn" style="margin-top:10px;">UNLOCK</button>
             </div>
             <div id="dec-output" style="display:none; height:100%; flex-direction:column;">
                 <div class="canvas-wrapper">
@@ -232,280 +88,7 @@
     </div>
 
     <div id="copy-toast">LINK COPIED!</div>
-
-    <script>
-        const EMOJIS = ["🤝", "👌", "🆘", "🏠", "⏳", "📞", "🍕", "😴", "❤️", "🏃", "🚨", "🎁", "🫂", "✅", "❓", "⚠️", "🕊️", "💪", "🌈", "📍", "🔒", "💰", "🔥", "🧊", "💊", "💬", "💀", "🤫", "👀", "🥂", "🦋", "🛸", "🌌", "🧬", "🌹", "💎"];
-        let state = { emo: 'serenity', int: 80, intent: '🤝', t: 0 };
-        let showSecret = false;
-
-        // UI Helpers
-        const picker = document.getElementById('intent-picker');
-        EMOJIS.forEach(e => {
-            const b = document.createElement('button');
-            b.innerText = e;
-            b.style.fontSize = "1rem"; b.style.padding = "5px";
-            b.onclick = () => {
-                document.querySelectorAll('#intent-picker button').forEach(btn => btn.classList.remove('selected'));
-                b.classList.add('selected');
-                b.classList.add('selected');
-                state.intent = e;
-                // Parse intent to text name for morse (e.g. 🤝 -> MEET)
-                const intentName = Object.keys(INTENT_MAP).find(key => INTENT_MAP[key] === e) || 'E';
-                morseSeq = getMorseSeq(intentName);
-                document.getElementById('badge-int').innerText = e;
-            };
-            if (e === '🤝') b.classList.add('selected');
-            picker.appendChild(b);
-        });
-
-        function switchView(id) {
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.getElementById('view-' + id).classList.add('active');
-            if (id === 'create' || id === 'decrypt') audioSys.update();
-        }
-
-        const audioSys = new class {
-            constructor() {
-                this.ctx = null; this.nodes = {}; this.enabled = false;
-            }
-            init() {
-                if (this.ctx) return;
-                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                this.main = this.ctx.createGain();
-                this.main.gain.value = 0;
-                this.main.connect(this.ctx.destination);
-
-                // Drone layers
-                this.o1 = this.mkOsc(); this.o2 = this.mkOsc();
-                this.lfo = this.mkOsc(true);
-                this.fil = this.ctx.createBiquadFilter();
-                this.fil.connect(this.main);
-                this.o1.g.connect(this.fil); this.o2.g.connect(this.fil);
-
-                this.update();
-            }
-            mkOsc(isLfo) {
-                const o = this.ctx.createOscillator();
-                const g = this.ctx.createGain();
-                o.connect(g); o.start();
-                if (isLfo) g.gain.value = 100;
-                return { o, g };
-            }
-            toggle() {
-                if (!this.ctx) this.init();
-                this.enabled = !this.enabled;
-                if (this.ctx.state === 'suspended') this.ctx.resume();
-                this.main.gain.setTargetAtTime(this.enabled ? 0.3 : 0, this.ctx.currentTime, 0.1);
-                return this.enabled;
-            }
-            update() {
-                if (!this.ctx) return;
-                const t = this.ctx.currentTime;
-                const i = state.int / 100;
-
-                if (state.emo === 'serenity') {
-                    this.tone(this.o1, 100, 'sine', t);
-                    this.tone(this.o2, 150, 'sine', t);
-                    this.fil.frequency.setTargetAtTime(400 + i * 400, t, 1);
-                } else if (state.emo === 'joy') {
-                    this.tone(this.o1, 300 + i * 100, 'triangle', t);
-                    this.tone(this.o2, 450 + i * 100, 'sine', t);
-                    this.fil.frequency.setTargetAtTime(2000, t, 1);
-                } else if (state.emo === 'rage') {
-                    this.tone(this.o1, 50, 'sawtooth', t);
-                    this.tone(this.o2, 55 + i * 50, 'square', t);
-                    this.fil.frequency.setTargetAtTime(3000 * i, t, 0.1);
-                } else {
-                    this.tone(this.o1, 60, 'sine', t);
-                    this.tone(this.o2, 120, 'triangle', t);
-                    this.fil.frequency.setTargetAtTime(100, t, 2);
-                }
-            }
-            tone(n, f, type, t) {
-                n.o.frequency.setTargetAtTime(f, t, 1);
-                n.o.type = type;
-            }
-        };
-
-        document.querySelectorAll('.emo-btn').forEach(b => {
-            b.onclick = () => {
-                document.querySelectorAll('.emo-btn').forEach(btn => btn.classList.remove('selected'));
-                b.classList.add('selected');
-                state.emo = b.dataset.emo;
-                document.getElementById('badge-emo').innerText = b.dataset.emo;
-                audioSys.update();
-            }
-        });
-
-        document.getElementById('intensity').oninput = (e) => {
-            state.int = e.target.value;
-            audioSys.update();
-        };
-        document.getElementById('btn-sound').onclick = (e) => {
-            const on = audioSys.toggle(); // Using global audioSys from app.js logic (will need to sync this)
-            e.target.innerText = on ? '🔊' : '🔇';
-            e.target.style.borderColor = on ? 'var(--accent)' : '#333';
-        };
-        document.getElementById('goto-encrypt').onclick = () => switchView('encrypt');
-
-        // MESMERIZING V6 ENGINE: Rainbow Liquid Motion
-        function runAnim(canvasId) {
-            const canvas = document.getElementById(canvasId);
-            const ctx = canvas.getContext('2d');
-
-            function draw() {
-                if (!canvas.offsetParent) return requestAnimationFrame(draw);
-
-                // Fixed sizing for high-density displays
-                const dpr = window.devicePixelRatio || 1;
-                const rect = canvas.getBoundingClientRect();
-                canvas.width = rect.width * dpr;
-                canvas.height = rect.height * dpr;
-                ctx.scale(dpr, dpr);
-
-                const w = rect.width;
-                const h = rect.height;
-
-                // Trail Effect
-                ctx.fillStyle = 'rgba(0,0,0,0.08)';
-                ctx.fillRect(0, 0, w, h);
-
-                const factor = state.int / 100;
-                const hueBase = state.t * 40;
-
-                const pulse = (Math.sin(state.t * 3) + 1) / 2;
-
-                // Hidden Data (Micro dots)
-                ctx.fillStyle = `hsla(${hueBase}, 100%, 50%, ${0.3 + pulse})`; // Pulse opacity
-                const intentIdx = EMOJIS.indexOf(state.intent) + 1;
-                for (let j = 0; j < intentIdx; j++) ctx.fillRect(10 + (j * 4), h - 6, 2 + (pulse * 4), 2 + (pulse * 4)); // Pulse size
-
-                ctx.lineWidth = 1.5 + (factor * 3) + (pulse * 2);
-                ctx.lineCap = 'round';
-
-                const centerX = w / 2;
-                const centerY = h / 2;
-                const lines = 40 + (factor * 40);
-
-                for (let i = 0; i < lines; i++) {
-                    ctx.beginPath();
-                    ctx.strokeStyle = `hsl(${(i * 8) + hueBase}, 100%, 60%)`;
-
-                    const angle = (i / lines) * Math.PI * 2;
-                    const shift = Math.sin(state.t + i * 0.1) * 50;
-
-                    let x1, y1, x2, y2;
-
-                    if (state.emo === 'serenity') {
-                        // Weaving flowing strands
-                        const rad = (Math.min(w, h) * 0.4) * factor;
-                        x1 = centerX + Math.sin(state.t + angle) * rad;
-                        y1 = centerY + Math.cos(state.t * 0.3 + angle) * rad;
-                        x2 = centerX + Math.sin(state.t * 0.5 + angle * 2) * (rad * 1.2);
-                        y2 = centerY + Math.cos(state.t + angle) * (rad * 1.2);
-                    } else if (state.emo === 'joy') {
-                        // Explosive kaleidoscopic pulse
-                        const rad = (Math.min(w, h) * 0.5) * factor;
-                        const pulse = Math.sin(state.t * 2) * 20;
-                        x1 = centerX + Math.cos(angle + state.t) * (pulse + 10);
-                        y1 = centerY + Math.sin(angle + state.t) * (pulse + 10);
-                        x2 = centerX + Math.cos(angle - state.t) * (rad + pulse);
-                        y2 = centerY + Math.sin(angle - state.t) * (rad + pulse);
-                    } else if (state.emo === 'rage') {
-                        // High-speed electrical arcs
-                        x1 = Math.random() * w;
-                        y1 = Math.random() * h;
-                        x2 = x1 + (Math.random() - 0.5) * (300 * factor);
-                        y2 = y1 + (Math.random() - 0.5) * (300 * factor);
-                    } else {
-                        // Spiraling void
-                        const r = (i * 15 + state.t * 100) % (Math.max(w, h) * factor);
-                        ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
-                    }
-
-                    if (state.emo !== 'grief') {
-                        ctx.moveTo(x1, y1);
-                        ctx.lineTo(x2, y2);
-                        ctx.stroke();
-                    } else {
-                        ctx.stroke();
-                    }
-                }
-
-                // Ghost Text Layer
-                if (state.secret && showSecret) {
-                    ctx.save();
-                    ctx.globalCompositeOperation = 'difference';
-                    ctx.font = 'bold 80px sans-serif';
-                    ctx.textAlign = 'right';
-                    ctx.textBaseline = 'bottom';
-                    ctx.fillStyle = 'rgba(255,255,255,0.8)';
-                    ctx.fillText(state.secret.toUpperCase(), w - 30, h - 30);
-                    ctx.restore();
-                }
-
-                state.t += 0.015;
-                requestAnimationFrame(draw);
-            }
-            draw();
-        }
-
-        // Secure Crypto Helpers
-        const b64 = (b) => btoa(String.fromCharCode(...new Uint8Array(b)));
-        const d64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
-
-        async function handleEnc() {
-            const pass = document.getElementById('pass-en').value;
-            if (!pass) return alert("PASSWORD REQUIRED");
-            const secret = document.getElementById('secret-msg').value;
-            const data = new TextEncoder().encode(JSON.stringify({ ...state, secret }));
-            const salt = crypto.getRandomValues(new Uint8Array(16));
-            const iv = crypto.getRandomValues(new Uint8Array(12));
-            const kMat = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
-            const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 10000, hash: "SHA-256" }, kMat, { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
-            const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data);
-            const pack = { c: b64(cipher), s: b64(salt), v: b64(iv) };
-            document.getElementById('final-link').value = window.location.origin + window.location.pathname + '#' + encodeURIComponent(btoa(JSON.stringify(pack)));
-            document.getElementById('result-area').style.display = 'block';
-        }
-
-        async function handleDec() {
-            try {
-                const pass = document.getElementById('pass-de').value;
-                const pack = JSON.parse(atob(decodeURIComponent(window.location.hash.substring(1))));
-                const kMat = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
-                const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: d64(pack.s), iterations: 10000, hash: "SHA-256" }, kMat, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
-                const dec = await crypto.subtle.decrypt({ name: "AES-GCM", iv: d64(pack.v) }, key, d64(pack.c));
-                const res = JSON.parse(new TextDecoder().decode(dec));
-                state = { ...res, t: 0 };
-                document.getElementById('dec-input').style.display = 'none';
-                document.getElementById('dec-output').style.display = 'flex';
-                document.getElementById('res-emo').innerText = res.emo;
-                document.getElementById('res-int').innerText = res.intent;
-                runAnim('view-canvas');
-
-                // Steganography Reveal Triggers
-                const c = document.getElementById('view-canvas');
-                const show = () => showSecret = true;
-                const hide = () => showSecret = false;
-                c.onmousedown = c.ontouchstart = show;
-                c.onmouseup = c.ontouchend = hide;
-            } catch (e) { alert("ACCESS DENIED: WRONG KEY"); }
-        }
-
-        document.getElementById('do-encrypt').onclick = handleEnc;
-        document.getElementById('do-decrypt').onclick = handleDec;
-        document.getElementById('copy-btn').onclick = () => {
-            const link = document.getElementById('final-link');
-            link.select(); link.setSelectionRange(0, 99999);
-            document.execCommand('copy');
-            const t = document.getElementById('copy-toast');
-            t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2000);
-        };
-
-        runAnim('preview-canvas');
-        if (window.location.hash) switchView('decrypt');
-    </script>
+    <script src="app.js"></script>
 </body>
 
 </html>
