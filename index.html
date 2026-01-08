@@ -5,87 +5,95 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SilentSpeak | Visual Cipher</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Fallback Styles if style.css fails */
+        :root { --bg: #0a0a0a; --accent: #00ff9d; --text: #fff; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; }
+        .app-container { max-width: 450px; margin: auto; padding: 20px; }
+        .canvas-wrapper { width: 100%; height: 300px; background: #000; border: 1px solid #333; border-radius: 12px; margin-bottom: 20px; }
+        canvas { width: 100%; height: 100%; display: block; }
+        .hidden { display: none !important; }
+        .view { display: none; }
+        .view.active { display: block; }
+        .selector-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px; }
+        button { background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 8px; cursor: pointer; }
+        button.selected { border-color: var(--accent); background: rgba(0,255,157,0.1); }
+        .primary-btn { width: 100%; background: var(--accent); color: #000; font-weight: bold; padding: 15px; border: none; margin-top: 10px; }
+        input { width: 100%; padding: 12px; background: #111; border: 1px solid #333; color: #fff; border-radius: 8px; box-sizing: border-box; margin-bottom: 10px; }
+    </style>
 </head>
 <body>
-    <div class="background-mesh"></div>
-
-    <header class="main-nav">
-        <div class="logo-area" onclick="location.hash=''; location.reload();">
-            <span class="logo-icon">🌐</span>
-            <h1>SilentSpeak</h1>
-        </div>
-        <button id="btn-open-key" class="icon-btn-circle">🔑</button>
+    <header style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between;">
+        <h1 style="font-size: 1.2rem; margin: 0;">🌐 SilentSpeak</h1>
+        <button id="btn-open-key">🔑</button>
     </header>
 
     <div class="app-container">
         <section id="view-create" class="view active">
             <div class="canvas-wrapper">
-                <span class="label-floating">Live Preview</span>
                 <canvas id="preview-canvas"></canvas>
             </div>
             
             <div class="controls">
-                <div class="control-group">
-                    <label>Emotion</label>
-                    <div class="selector-grid">
-                        <button class="emotion-btn selected" data-emotion="serenity">🌊</button>
-                        <button class="emotion-btn" data-emotion="joy">✨</button>
-                        <button class="emotion-btn" data-emotion="rage">🔥</button>
-                        <button class="emotion-btn" data-emotion="grief">🌑</button>
-                    </div>
+                <label style="font-size: 0.8rem; color: #888;">EMOTION</label>
+                <div class="selector-grid">
+                    <button class="emotion-btn selected" data-emotion="serenity">🌊</button>
+                    <button class="emotion-btn" data-emotion="joy">✨</button>
+                    <button class="emotion-btn" data-emotion="rage">🔥</button>
+                    <button class="emotion-btn" data-emotion="grief">🌑</button>
                 </div>
 
-                <div class="control-group">
-                    <label>Intent Cipher</label>
-                    <div class="selector-grid">
-                        <button class="intent-btn" data-intent="MEET">🤝</button>
-                        <button class="intent-btn" data-intent="OK">👌</button>
-                        <button class="intent-btn" data-intent="HELP">🆘</button>
-                        <button class="intent-btn" data-intent="SAFE">🏠</button>
-                        <button class="intent-btn" data-intent="WAIT">⏳</button>
-                        <button class="intent-btn" data-intent="CALL">📞</button>
-                        <button class="intent-btn" data-intent="FOOD">🍕</button>
-                        <button class="intent-btn" data-intent="SLEEP">😴</button>
-                    </div>
+                <label style="font-size: 0.8rem; color: #888;">INTENT CIPHER</label>
+                <div class="selector-grid">
+                    <button class="intent-btn" data-intent="MEET">🤝</button>
+                    <button class="intent-btn" data-intent="OK">👌</button>
+                    <button class="intent-btn" data-intent="HELP">🆘</button>
+                    <button class="intent-btn" data-intent="SAFE">🏠</button>
+                    <button class="intent-btn" data-intent="WAIT">⏳</button>
+                    <button class="intent-btn" data-intent="CALL">📞</button>
+                    <button class="intent-btn" data-intent="FOOD">🍕</button>
+                    <button class="intent-btn" data-intent="SLEEP">😴</button>
                 </div>
 
-                <div class="control-row">
-                    <div class="control-group">
-                        <label>Intensity: <span id="intensity-val">50%</span></label>
-                        <input type="range" id="intensity" min="0" max="100" value="50">
-                    </div>
-                </div>
+                <label style="font-size: 0.8rem; color: #888;">INTENSITY: <span id="intensity-val">50%</span></label>
+                <input type="range" id="intensity" min="0" max="100" value="50" style="margin-bottom: 20px;">
             </div>
             <button id="btn-goto-encrypt" class="primary-btn">Next: Encrypt →</button>
         </section>
 
-        <section id="view-encrypt" class="view hidden">
+        <section id="view-encrypt" class="view">
+            <button id="btn-back-create" style="margin-bottom: 10px;">← Back</button>
             <h2>Secure Message</h2>
-            <input type="password" id="encrypt-pass" placeholder="Enter Passphrase">
+            <p style="color: #888; font-size: 0.9rem;">The art is your message. Secure it with a passphrase.</p>
+            <input type="password" id="encrypt-pass" placeholder="Passphrase">
             <button id="btn-encrypt" class="primary-btn">🔒 Generate Link</button>
-            <div id="share-result" class="hidden">
+            
+            <div id="share-result" class="hidden" style="margin-top: 20px; padding: 15px; background: #111; border-radius: 8px;">
+                <label style="font-size: 0.7rem; color: var(--accent);">YOUR SECURE LINK:</label>
                 <input type="text" id="share-link" readonly>
-                <button id="btn-copy" class="secondary-btn">Copy Link</button>
+                <button id="btn-copy" style="width: 100%; margin-top: 10px; background: #333;">Copy Link</button>
             </div>
         </section>
 
-        <section id="view-decrypt" class="view hidden">
+        <section id="view-decrypt" class="view">
             <div id="decrypt-input-area">
                 <h2>Unlock Message</h2>
-                <input type="password" id="decrypt-pass" placeholder="Passphrase">
+                <input type="password" id="decrypt-pass" placeholder="Enter passphrase">
                 <button id="btn-decrypt" class="primary-btn">🔓 Decrypt</button>
             </div>
             <div id="decrypt-display-area" class="hidden">
                 <div class="canvas-wrapper"><canvas id="view-canvas"></canvas></div>
-                <div class="summary-card">
-                    <p>Emotion: <span id="res-emotion"></span></p>
-                    <p>Intent: <span id="res-intent"></span></p>
+                <div style="background: #111; padding: 15px; border-radius: 8px;">
+                    <p>Emotion: <span id="res-emotion" style="font-size: 1.5rem;"></span></p>
+                    <p>Intent: <span id="res-intent" style="font-size: 1.5rem;"></span></p>
                 </div>
+                <button onclick="location.hash=''; location.reload();" class="primary-btn" style="background: #333; color: white;">Create New</button>
             </div>
         </section>
     </div>
 
-    <div id="toast-container"></div>
+    <div id="toast-container" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999;"></div>
+
     <script src="app.js"></script>
 </body>
 </html>
