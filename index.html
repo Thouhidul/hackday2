@@ -3,38 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SilentSpeak | Ether Cipher</title>
+    <title>SilentSpeak | Supernova</title>
     <style>
-        :root { --bg: #030303; --accent: #00ffcc; --surface: #0a0a0a; --text: #e0e0e0; }
-        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
-        .app-container { max-width: 450px; margin: 0 auto; padding: 10px; height: 100vh; display: flex; flex-direction: column; }
-        header { padding: 15px; border-bottom: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; }
-        .canvas-wrapper { width: 100%; flex-grow: 1; min-height: 380px; background: #000; border-radius: 24px; border: 1px solid #222; margin-bottom: 10px; position: relative; box-shadow: 0 0 40px rgba(0,0,0,1); }
-        canvas { width: 100%; height: 100%; display: block; border-radius: 24px; filter: contrast(1.1) brightness(1.2); }
-        .controls { background: var(--surface); padding: 15px; border-radius: 24px; border: 1px solid #1a1a1a; }
-        .section-label { font-size: 0.6rem; color: #444; text-transform: uppercase; margin: 5px 0; letter-spacing: 2px; text-align: center; }
+        :root { --bg: #000; --accent: #fff; --surface: #111; }
+        body { background: var(--bg); color: #fff; font-family: 'Arial Black', sans-serif; margin: 0; overflow: hidden; }
+        .app-container { max-width: 500px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* The Preview Window */
+        .canvas-wrapper { width: 100%; flex-grow: 1; background: #000; position: relative; overflow: hidden; }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        /* UI Overlay */
+        .controls { background: rgba(10, 10, 10, 0.9); padding: 20px; border-top: 2px solid #222; backdrop-filter: blur(10px); }
         .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; }
-        .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; max-height: 90px; overflow-y: auto; padding: 5px; }
-        button { background: #000; border: 1px solid #222; color: #fff; padding: 10px; border-radius: 12px; cursor: pointer; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        button.selected { border-color: var(--accent); box-shadow: 0 0 20px rgba(0,255,204,0.3); transform: scale(1.1) translateY(-2px); background: #0a1a1a; }
-        .primary-btn { width: 100%; background: var(--accent); color: #000; font-weight: bold; padding: 18px; border: none; border-radius: 18px; margin-top: 10px; font-size: 0.9rem; cursor: pointer; letter-spacing: 1px; }
-        input { width: 100%; padding: 14px; background: #000; border: 1px solid #222; color: #fff; border-radius: 12px; margin-bottom: 10px; outline: none; }
+        .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; max-height: 80px; overflow-y: auto; margin-bottom: 10px; }
+        
+        button { background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 1.2rem; }
+        button.selected { border-color: #fff; background: #fff; color: #000; box-shadow: 0 0 20px #fff; }
+        
+        .primary-btn { width: 100%; background: #00ffcc; color: #000; font-weight: 900; padding: 20px; border: none; border-radius: 12px; font-size: 1.1rem; cursor: pointer; text-transform: uppercase; }
+        
+        input { width: 100%; padding: 15px; background: #000; border: 1px solid #444; color: #fff; border-radius: 8px; margin-bottom: 10px; }
         .view { display: none; height: 100%; flex-direction: column; }
         .view.active { display: flex; }
-        .summary-card { display: flex; align-items: center; justify-content: space-around; background: #000; padding: 20px; border-radius: 20px; border: 1px solid #1a1a1a; }
-        #status { font-size: 0.6rem; color: var(--accent); opacity: 0.6; }
+        .summary-card { position: absolute; top: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; pointer-events: none; }
+        .big-text { font-size: 3rem; text-shadow: 0 0 20px #000; }
     </style>
 </head>
 <body>
 
-    <header>
-        <div onclick="location.hash=''; location.reload();" style="cursor:pointer; font-weight: bold; letter-spacing: 3px;">ETHER_CIPHER</div>
-        <div id="status">● SYSTEM_READY</div>
-    </header>
-
     <div class="app-container">
         <section id="view-create" class="view active">
-            <div class="canvas-wrapper"><canvas id="preview-canvas"></canvas></div>
+            <div class="canvas-wrapper">
+                <canvas id="preview-canvas"></canvas>
+            </div>
             <div class="controls">
                 <div class="grid">
                     <button class="emo-btn selected" data-emo="serenity">🌊</button>
@@ -43,53 +45,48 @@
                     <button class="emo-btn" data-emo="grief">🌑</button>
                 </div>
                 <div class="emoji-grid" id="intent-picker"></div>
-                <input type="range" id="intensity" min="1" max="100" value="50" style="width:100%; accent-color:var(--accent); margin-top:10px;">
+                <input type="range" id="intensity" min="1" max="100" value="70" style="width:100%; accent-color:#00ffcc">
+                <button id="goto-encrypt" class="primary-btn">ENCODE & LOCK</button>
             </div>
-            <button id="goto-encrypt" class="primary-btn">GENERATE ETHER LINK</button>
         </section>
 
         <section id="view-encrypt" class="view">
-            <div class="controls" style="margin-top:20px;">
-                <h3 style="text-align:center">Set Key</h3>
-                <input type="text" id="pass-en" placeholder="Passphrase">
-                <button id="do-encrypt" class="primary-btn">LOCK LINK</button>
+            <div class="controls" style="margin-top:auto;">
+                <h1 style="text-align:center">Set Passphrase</h1>
+                <input type="text" id="pass-en" placeholder="PASSWORD">
+                <button id="do-encrypt" class="primary-btn">GENERATE SECURE URL</button>
                 <div id="result-area" style="display:none; margin-top:20px;">
-                    <input type="text" id="final-link" readonly style="font-size:0.7rem">
-                    <button id="copy-btn" style="width:100%; background:#222; color:var(--accent)">COPY URL</button>
+                    <input type="text" id="final-link" readonly>
+                    <button id="copy-btn" style="width:100%; background:#fff; color:#000">COPY LINK</button>
                 </div>
+                <button onclick="switchView('create')" style="width:100%; background:none; border:none; color:#666; margin-top:15px;">← CANCEL</button>
             </div>
-            <button onclick="switchView('create')" style="background:none; border:none; color:#444; margin-top:20px;">← Back to Visual</button>
         </section>
 
         <section id="view-decrypt" class="view">
-            <div id="dec-input" class="controls" style="margin-top:50px;">
-                <h3 style="text-align:center">Unlock Cipher</h3>
-                <input type="text" id="pass-de" placeholder="Enter Key">
-                <button id="do-decrypt" class="primary-btn">UNLOCK</button>
+            <div id="dec-input" class="controls" style="margin-top:auto;">
+                <h1 style="text-align:center">Unlock Visual</h1>
+                <input type="text" id="pass-de" placeholder="ENTER KEY">
+                <button id="do-decrypt" class="primary-btn">DECODE</button>
             </div>
             <div id="dec-output" style="display:none; height:100%; flex-direction:column;">
-                <div class="canvas-wrapper"><canvas id="view-canvas"></canvas></div>
-                <div class="summary-card">
-                    <span id="res-emo" style="letter-spacing:2px; font-size:0.7rem"></span>
-                    <span id="res-int" style="font-size:2.5rem"></span>
+                <div class="canvas-wrapper">
+                    <canvas id="view-canvas"></canvas>
+                    <div class="summary-card">
+                        <span id="res-emo" class="big-text"></span>
+                        <span id="res-int" class="big-text"></span>
+                    </div>
                 </div>
-                <button onclick="location.hash=''; location.reload();" class="primary-btn" style="background:#111; color:#fff;">NEW SESSION</button>
+                <button onclick="location.hash=''; location.reload();" class="primary-btn" style="border-radius:0;">CREATE NEW</button>
             </div>
         </section>
     </div>
 
     <script>
         const EMOJIS = ["🤝","👌","🆘","🏠","⏳","📞","🍕","😴","❤️","🏃","🚨","🎁","🫂","✅","❓","⚠️","🕊️","💪","🌈","📍","🔒","💰","🔥","🧊","💊","💬","💀","🤫","👀","🥂","🦋","🛸","🌌","🧬","🌹","💎"];
-        const PALETTES = { 
-            serenity:['#00f2ff','#7effd4','#0062ff'], 
-            joy:['#ffd700','#ff00d4','#00ffcc'], 
-            rage:['#ff3300','#ff0055','#ffffff'], 
-            grief:['#6a00ff','#1a1a1a','#444444'] 
-        };
-        
-        let state = { emo:'serenity', int:50, intent:'🤝', seed:Math.random() };
+        let state = { emo:'serenity', int:70, intent:'🤝', seed:Math.random() };
 
-        // UI Initialization
+        // UI Setup
         const picker = document.getElementById('intent-picker');
         EMOJIS.forEach(e => {
             const b = document.createElement('button');
@@ -119,82 +116,87 @@
         document.getElementById('intensity').oninput = (e) => state.int = e.target.value;
         document.getElementById('goto-encrypt').onclick = () => switchView('encrypt');
 
-        // MAGICAL ANIMATION ENGINE (Harmonographs & Light Trails)
+        // FLASHY ANIMATION ENGINE
         function runAnim(canvasId) {
             const canvas = document.getElementById(canvasId);
-            const ctx = canvas.getContext('2d', { alpha: false });
+            const ctx = canvas.getContext('2d');
             let t = 0;
 
             function draw() {
                 if (canvas.offsetParent === null) return requestAnimationFrame(draw);
-                canvas.width = canvas.clientWidth * window.devicePixelRatio;
-                canvas.height = canvas.clientHeight * window.devicePixelRatio;
-                const cx = canvas.width / 2;
-                const cy = canvas.height / 2;
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+                const w = canvas.width;
+                const h = canvas.height;
                 
-                // Magical "Fade" - creating the neon trail effect
-                ctx.fillStyle = 'rgba(0,0,0,0.05)'; 
-                ctx.fillRect(0,0,canvas.width,canvas.height);
+                // Subtractive clear for trails
+                ctx.fillStyle = 'rgba(0,0,0,0.1)';
+                ctx.fillRect(0,0,w,h);
 
-                const colors = PALETTES[state.emo];
                 const factor = state.int / 100;
-                const speed = 0.005 + (factor * 0.02);
+                const hueShift = t * 50; // Dynamic color cycling
 
-                // Hidden Data Cipher (Discrete dots in bottom corner)
-                ctx.fillStyle = colors[0];
+                // Intent Cipher (Bottom hidden marks)
+                ctx.fillStyle = `hsl(${hueShift}, 100%, 50%)`;
                 const intentIdx = EMOJIS.indexOf(state.intent) + 1;
-                for(let j=0; j<intentIdx; j++) ctx.fillRect(40+(j*10), canvas.height-40, 4, 4);
+                for(let j=0; j<intentIdx; j++) ctx.fillRect(20+(j*6), h-10, 4, 4);
 
-                // Particle Loop
-                const count = 50;
-                ctx.shadowBlur = 15 * factor;
-                ctx.lineWidth = 1.5 + (factor * 3);
+                ctx.lineWidth = 2;
+                const lines = 30 + (factor * 50);
 
-                for(let i=0; i < count; i++) {
-                    ctx.strokeStyle = colors[i % colors.length];
-                    ctx.shadowColor = colors[i % colors.length];
+                for(let i=0; i<lines; i++) {
                     ctx.beginPath();
+                    // Rainbow colors based on line index and time
+                    ctx.strokeStyle = `hsl(${(i * 5) + hueShift}, 100%, 60%)`;
                     
-                    let x, y;
-                    const p = (i / count) * Math.PI * 2;
-                    
+                    let x1, y1, x2, y2;
+                    const angle = (i / lines) * Math.PI * 2;
+                    const dist = (w < h ? w : h) * 0.45 * factor;
+
                     if(state.emo === 'serenity') {
-                        // Harmonograph: Silk Weaving
-                        x = cx + Math.sin(t * 1.1 + p * 2) * cx * 0.8 * factor;
-                        y = cy + Math.cos(t * 0.9 + p * 3) * cy * 0.8 * factor;
+                        // Weaving Silk Waves
+                        x1 = w/2 + Math.sin(t + angle) * dist;
+                        y1 = h/2 + Math.cos(t * 0.5 + angle) * dist;
+                        x2 = w/2 + Math.cos(t * 0.2 + angle * 2) * (dist * 1.5);
+                        y2 = h/2 + Math.sin(t + angle) * (dist * 1.5);
                     } else if(state.emo === 'joy') {
-                        // Flower of Life / Spirograph
-                        const r = (cx * 0.5 * factor) * Math.sin(t + p * 5);
-                        x = cx + Math.cos(p + t) * (r + 100);
-                        y = cy + Math.sin(p + t) * (r + 100);
+                        // Exploding Star
+                        x1 = w/2 + Math.cos(angle + t) * (dist * 0.2);
+                        y1 = h/2 + Math.sin(angle + t) * (dist * 0.2);
+                        x2 = w/2 + Math.cos(angle - t * 2) * (dist * 2);
+                        y2 = h/2 + Math.sin(angle - t * 2) * (dist * 2);
                     } else if(state.emo === 'rage') {
-                        // Lightning / Chaotic Energy
-                        x = cx + Math.tan(Math.sin(t + p)) * cx * factor;
-                        y = cy + Math.cos(t * 5 + p) * cy * factor;
+                        // Jagged Lightning
+                        x1 = Math.random() * w;
+                        y1 = Math.random() * h;
+                        x2 = x1 + (Math.random() - 0.5) * 200 * factor;
+                        y2 = y1 + (Math.random() - 0.5) * 200 * factor;
                     } else {
-                        // Dark Matter / Gravity Wells
-                        const d = (Math.sin(t + p) * 150) * factor;
-                        x = cx + Math.cos(p) * (200 - d);
-                        y = cy + Math.sin(p) * (200 - d);
+                        // Deep Tunnel
+                        const r = (i * 10) % (dist * 2);
+                        ctx.arc(w/2, h/2, r, 0, Math.PI * 2);
                     }
 
-                    ctx.arc(x, y, 2, 0, Math.PI * 2);
+                    if(state.emo !== 'grief') {
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                    }
                     ctx.stroke();
                 }
 
-                t += speed;
+                t += 0.01;
                 requestAnimationFrame(draw);
             }
             draw();
         }
 
-        // CRYSTAL CRYPTO (Fixed Buffer)
+        // Crypto
         const b64 = (b) => btoa(String.fromCharCode(...new Uint8Array(b)));
         const d64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 
         async function handleEnc() {
             const pass = document.getElementById('pass-en').value;
-            if(!pass) return alert("Define a Key");
+            if(!pass) return alert("ENTER PASSWORD");
             const data = new TextEncoder().encode(JSON.stringify(state));
             const salt = crypto.getRandomValues(new Uint8Array(16));
             const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -219,12 +221,12 @@
                 document.getElementById('res-emo').innerText = state.emo.toUpperCase();
                 document.getElementById('res-int').innerText = state.intent;
                 runAnim('view-canvas');
-            } catch(e) { alert("Key Incorrect"); }
+            } catch(e) { alert("WRONG KEY"); }
         }
 
         document.getElementById('do-encrypt').onclick = handleEnc;
         document.getElementById('do-decrypt').onclick = handleDec;
-        document.getElementById('copy-btn').onclick = () => { document.getElementById('final-link').select(); document.execCommand('copy'); alert("Link Synthesized"); };
+        document.getElementById('copy-btn').onclick = () => { document.getElementById('final-link').select(); document.execCommand('copy'); alert("LINK COPIED"); };
 
         runAnim('preview-canvas');
         if(window.location.hash) switchView('decrypt');
