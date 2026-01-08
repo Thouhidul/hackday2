@@ -1,17 +1,16 @@
 const PALETTES = {
-    neon: ['#FF00FF', '#00FFFF', '#FFFF00'],
-    joy: ['#FFD700', '#FF69B4', '#00FF7F'],
-    rage: ['#FF4500', '#8B0000', '#FF0000'],
-    grief: ['#483D8B', '#2F4F4F', '#000000']
+    serenity: ['#00FFFF', '#0080FF', '#7FFFD4'],
+    joy: ['#FFD700', '#FF69B4', '#FF00FF'],
+    rage: ['#FF4500', '#FF0000', '#8B0000'],
+    grief: ['#4B0082', '#000000', '#2F4F4F']
 };
 
 const INTENT_MAP = { MEET: '🤝', OK: '👌', HELP: '🆘', SAFE: '🏠', WAIT: '⏳', CALL: '📞', FOOD: '🍕', SLEEP: '😴' };
 
 let appState = {
-    emotion: 'serenity', intensity: 50, palette: 'neon', intent: 'MEET', seed: Math.random()
+    emotion: 'serenity', intensity: 50, intent: 'MEET', seed: Math.random()
 };
 
-/* --- INITIALIZATION --- */
 window.addEventListener('load', () => {
     const obs = new ResizeObserver(entries => {
         for (let e of entries) {
@@ -32,12 +31,13 @@ window.addEventListener('load', () => {
 });
 
 function initUI() {
+    document.getElementById('btn-open-key').onclick = () => document.getElementById('modal-key').style.display = 'block';
+    
     document.querySelectorAll('.emotion-btn').forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll('.emotion-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
             appState.emotion = btn.dataset.emotion;
-            appState.palette = btn.dataset.emotion === 'serenity' ? 'neon' : btn.dataset.emotion;
         };
     });
 
@@ -59,8 +59,7 @@ function initUI() {
     document.getElementById('btn-encrypt').onclick = handleEncryption;
     document.getElementById('btn-decrypt').onclick = handleDecryption;
     document.getElementById('btn-copy').onclick = () => {
-        const link = document.getElementById('share-link');
-        link.select();
+        document.getElementById('share-link').select();
         document.execCommand('copy');
         showToast("Link Copied!");
     };
@@ -71,118 +70,109 @@ function switchView(id) {
     document.getElementById('view-' + id).classList.add('active');
 }
 
-/* --- VISUAL ENGINE --- */
+/* --- PHYSICS ENGINE: THE EMOTION LOGIC --- */
 function startAnimation(canvas) {
     const ctx = canvas.getContext('2d');
     let t = 0;
 
     const draw = () => {
         if (!canvas.width) return requestAnimationFrame(draw);
-        ctx.fillStyle = 'rgba(0,0,0,0.1)';
-        ctx.fillRect(0,0,canvas.width,canvas.height);
+        
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const colors = PALETTES[appState.palette] || PALETTES.neon;
+        const colors = PALETTES[appState.emotion];
         const factor = appState.intensity / 100;
+        const count = 6 + Math.floor(factor * 15);
 
-        // Intent Signature (Bottom Left)
+        // Intent Marks
         ctx.fillStyle = colors[0];
-        const intentIdx = Object.keys(INTENT_MAP).indexOf(appState.intent) + 1;
-        for(let j=0; j<intentIdx; j++) {
-            ctx.fillRect(10 + (j*8), canvas.height - 15, 4, 4);
-        }
+        const idx = Object.keys(INTENT_MAP).indexOf(appState.intent) + 1;
+        for(let j=0; j<idx; j++) ctx.fillRect(15 + (j*8), canvas.height - 20, 5, 5);
 
-        // Abstract Particles
-        for (let i=0; i< (5 + factor*20); i++) {
+        for (let i = 0; i < count; i++) {
             ctx.fillStyle = colors[i % colors.length];
             ctx.beginPath();
-            let x = canvas.width/2 + Math.sin(t + i * appState.seed) * (100 * factor);
-            let y = canvas.height/2 + Math.cos(t * 0.5 + i) * 80;
-            ctx.arc(x, y, 5 + Math.sin(t)*3, 0, Math.PI*2);
+            let x, y, size = 6;
+
+            if (appState.emotion === 'serenity') {
+                x = canvas.width/2 + Math.sin(t + i) * (canvas.width/3);
+                y = canvas.height/2 + Math.cos(t * 0.3 + i) * (canvas.height/4);
+                ctx.arc(x, y, 10 * factor + 5, 0, Math.PI*2);
+            } 
+            else if (appState.emotion === 'joy') {
+                x = canvas.width/2 + Math.cos(t * 2 + i) * (80 * factor + i*10);
+                y = canvas.height/2 + Math.sin(t * 2 + i) * (80 * factor + i*10);
+                ctx.arc(x, y, 8, 0, Math.PI*2);
+            } 
+            else if (appState.emotion === 'rage') {
+                x = canvas.width/2 + (Math.random()-0.5) * canvas.width * factor;
+                y = canvas.height/2 + (Math.random()-0.5) * canvas.height * factor;
+                ctx.moveTo(x, y);
+                ctx.lineTo(x+15, y+15);
+                ctx.lineTo(x-15, y+15);
+                ctx.closePath();
+            } 
+            else if (appState.emotion === 'grief') {
+                x = (canvas.width / count) * i + Math.sin(t + i)*10;
+                y = (t * 100 + i * 50) % canvas.height;
+                ctx.arc(x, y, 12 * (1-factor*0.5), 0, Math.PI*2);
+            }
             ctx.fill();
         }
-        t += 0.02;
+        t += 0.01 + (factor * 0.04);
         requestAnimationFrame(draw);
     };
     draw();
 }
 
-/* --- CRYPTO ENGINE --- */
+/* --- ENCRYPTION LOGIC --- */
 async function handleEncryption() {
     const pass = document.getElementById('encrypt-pass').value;
     if(!pass) return showToast("Enter a passphrase!");
 
-    const msg = JSON.stringify({
-        e: appState.emotion,
-        i: appState.intensity,
-        in: appState.intent,
-        s: appState.seed
-    });
+    const msg = JSON.stringify({ e: appState.emotion, i: appState.intensity, in: appState.intent, s: appState.seed });
 
     try {
         const salt = crypto.getRandomValues(new Uint8Array(16));
         const iv = crypto.getRandomValues(new Uint8Array(12));
         const enc = new TextEncoder();
-        
         const keyMat = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
-        const key = await crypto.subtle.deriveKey(
-            {name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256"},
-            keyMat, {name: "AES-GCM", length: 256}, false, ["encrypt"]
-        );
-
-        const cipher = await crypto.subtle.encrypt({name: "AES-GCM", iv}, key, enc.encode(msg));
+        const key = await crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:100000, hash:"SHA-256"}, keyMat, {name:"AES-GCM", length:256}, false, ["encrypt"]);
+        const cipher = await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, enc.encode(msg));
         
-        const package = {
-            c: b64(cipher),
-            s: b64(salt),
-            v: b64(iv)
-        };
-
-        const link = window.location.origin + window.location.pathname + "#" + btoa(JSON.stringify(package));
-        document.getElementById('share-link').value = link;
+        const pkg = { c: b64(cipher), s: b64(salt), v: b64(iv) };
+        document.getElementById('share-link').value = window.location.origin + window.location.pathname + "#" + btoa(JSON.stringify(pkg));
         document.getElementById('share-result').classList.remove('hidden');
-        showToast("Encrypted Successfully!");
-    } catch(e) {
-        showToast("Encryption Failed");
-    }
+    } catch(e) { showToast("Error creating link"); }
 }
 
 async function handleDecryption() {
     const pass = document.getElementById('decrypt-pass').value;
     const hash = window.location.hash.substring(1);
-    
     try {
         const data = JSON.parse(atob(hash));
         const enc = new TextEncoder();
-        
         const keyMat = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
-        const key = await crypto.subtle.deriveKey(
-            {name: "PBKDF2", salt: db64(data.s), iterations: 100000, hash: "SHA-256"},
-            keyMat, {name: "AES-GCM", length: 256}, false, ["decrypt"]
-        );
+        const key = await crypto.subtle.deriveKey({name:"PBKDF2", salt:db64(data.s), iterations:100000, hash:"SHA-256"}, keyMat, {name:"AES-GCM", length:256}, false, ["decrypt"]);
+        const dec = await crypto.subtle.decrypt({name:"AES-GCM", iv:db64(data.v)}, key, db64(data.c));
+        const res = JSON.parse(new TextDecoder().decode(dec));
 
-        const dec = await crypto.subtle.decrypt({name: "AES-GCM", iv: db64(data.v)}, key, db64(data.c));
-        const result = JSON.parse(new TextDecoder().decode(dec));
-
-        appState = { emotion: result.e, intensity: result.i, intent: result.in, seed: result.s, palette: result.e === 'serenity' ? 'neon' : result.e };
-        
+        appState = { emotion: res.e, intensity: res.i, intent: res.in, seed: res.s };
         document.getElementById('decrypt-input-area').classList.add('hidden');
         document.getElementById('decrypt-display-area').classList.remove('hidden');
-        document.getElementById('res-emotion').innerText = result.e.toUpperCase();
-        document.getElementById('res-intent').innerText = INTENT_MAP[result.in];
-        
+        document.getElementById('res-emotion').innerText = res.e === 'serenity' ? '🌊' : (res.e === 'joy' ? '✨' : (res.e === 'rage' ? '🔥' : '🌑'));
+        document.getElementById('res-intent').innerText = INTENT_MAP[res.in];
         startAnimation(document.getElementById('view-canvas'));
-    } catch(e) {
-        showToast("Wrong Passphrase!");
-    }
+    } catch(e) { showToast("Wrong Passphrase!"); }
 }
 
 function b64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))); }
 function db64(str) { return new Uint8Array(atob(str).split("").map(c => c.charCodeAt(0))).buffer; }
-
 function showToast(m) {
     const t = document.createElement('div');
-    t.style = "background: #333; color: #fff; padding: 10px 20px; border-radius: 20px; margin-top: 10px; border: 1px solid var(--accent);";
+    t.style = "background: #333; color: var(--accent); padding: 10px 20px; border-radius: 20px; border: 1px solid #444; margin-top: 10px;";
     t.innerText = m;
     document.getElementById('toast-container').appendChild(t);
-    setTimeout(() => t.remove(), 3000);
+    setTimeout(() => t.remove(), 2500);
 }
