@@ -1,0 +1,120 @@
+:root {
+    --bg-dark: #080808;
+    --card-bg: rgba(20, 20, 20, 0.9);
+    --accent: #00ff9d;
+    --border: rgba(255, 255, 255, 0.1);
+    --text-main: #f0f0f0;
+    --text-muted: #888;
+    --font-mono: 'Space Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; min-height: 100vh; overflow-x: hidden; }
+
+/* Background */
+.background-mesh {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+    background: radial-gradient(circle at 50% 50%, #111, #000);
+}
+
+/* Header & Icons */
+.main-nav {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 15px 25px; border-bottom: 1px solid var(--border);
+}
+.logo-area { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.logo-icon { font-size: 1.2rem; }
+h1 { font-family: var(--font-mono); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 2px; }
+
+.icon-btn-circle {
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    width: 40px; height: 40px; border-radius: 50%; color: white; cursor: pointer; transition: 0.2s;
+}
+.icon-btn-circle:hover { background: var(--accent); color: black; }
+
+/* App Layout */
+.app-container { max-width: 460px; margin: 20px auto; padding: 0 20px; }
+.view { display: none; opacity: 0; transform: translateY(10px); transition: 0.4s ease; }
+.view.active { display: block; opacity: 1; transform: translateY(0); }
+.hidden { display: none !important; }
+
+/* Canvas */
+.canvas-wrapper {
+    position: relative; width: 100%; height: 260px; background: #000;
+    border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 20px;
+}
+.label-floating { position: absolute; top: 10px; left: 10px; font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent); opacity: 0.7; }
+
+/* Controls */
+.control-group { margin-bottom: 18px; }
+label { display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 1px; }
+
+.emotion-selector, .intent-selector { display: flex; gap: 8px; justify-content: space-between; }
+.emotion-btn, .intent-btn {
+    flex: 1; background: #1a1a1a; border: 1px solid var(--border);
+    padding: 12px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.2s;
+}
+.emotion-btn.selected, .intent-btn.selected { border-color: var(--accent); background: rgba(0,255,157,0.1); }
+
+.range-header { display: flex; justify-content: space-between; }
+#intensity-val { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; }
+
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+select, input[type="password"], input[type="text"] {
+    width: 100%; padding: 12px; background: #111; border: 1px solid var(--border);
+    color: white; border-radius: 8px; font-family: var(--font-mono);
+}
+
+/* Buttons */
+.primary-btn {
+    width: 100%; padding: 15px; background: var(--accent); border: none;
+    border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px;
+}
+.secondary-btn {
+    width: 100%; padding: 10px; background: transparent; border: 1px solid var(--border);
+    color: var(--text-muted); border-radius: 8px; cursor: pointer;
+}
+
+/* Meaning Summary */
+.summary-card {
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+    padding: 15px; border-radius: 12px; margin-top: 20px;
+}
+.summary-grid { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 15px; align-items: center; }
+.summary-item { text-align: center; }
+.res-icon { font-size: 1.5rem; display: block; margin-top: 5px; }
+.res-bar-bg { background: #333; height: 6px; border-radius: 3px; margin-top: 10px; }
+.res-bar { background: var(--accent); height: 100%; border-radius: 3px; width: 0%; transition: width 1s ease; }
+.mood-hints { display: flex; justify-content: center; gap: 15px; margin-top: 15px; font-size: 1.2rem; border-top: 1px solid var(--border); padding-top: 15px; }
+
+/* Interpretation Area */
+.interpretation-area { margin-top: 20px; text-align: center; }
+.emoji-feedback { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+.emoji-feedback button {
+    background: none; border: 1px solid var(--border); font-size: 1.2rem;
+    padding: 8px; border-radius: 8px; cursor: pointer; transition: 0.2s;
+}
+.emoji-feedback button.active { background: var(--accent); border-color: var(--accent); }
+
+/* Modal */
+.modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+    display: flex; align-items: center; justify-content: center; z-index: 2000;
+}
+.modal-content {
+    background: #151515; border: 1px solid var(--border); width: 90%; max-width: 400px;
+    padding: 25px; border-radius: 16px;
+}
+.modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+.key-section { margin-bottom: 20px; }
+.key-section h4 { color: var(--accent); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 10px; }
+.key-section p { font-size: 0.85rem; margin-bottom: 5px; color: var(--text-muted); }
+
+/* Toast */
+#toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 3000; }
+.toast { background: #333; color: white; padding: 10px 20px; border-radius: 20px; font-size: 0.8rem; margin-top: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+
+/* Spinner */
+.spinner { width: 20px; height: 20px; border: 2px solid #000; border-top: 2px solid transparent; border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
