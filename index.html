@@ -3,103 +3,230 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SilentSpeak | Visual Cipher</title>
-    <link rel="stylesheet" href="style.css">
+    <title>SilentSpeak | Secure Visual Cipher</title>
     <style>
-        :root { --bg: #050505; --accent: #00ff9d; --text: #fff; }
-        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; display: flex; flex-direction: column; min-height: 100vh; }
-        .app-container { max-width: 450px; margin: auto; padding: 20px; width: 100%; box-sizing: border-box; }
-        .canvas-wrapper { width: 100%; height: 320px; background: #000; border: 1px solid #222; border-radius: 16px; margin-bottom: 20px; position: relative; overflow: hidden; }
+        :root { --bg: #0a0a0a; --accent: #00ff9d; --surface: #1a1a1a; --text: #fff; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; overflow-x: hidden; }
+        
+        /* Layout */
+        .app-container { max-width: 450px; margin: 0 auto; padding: 20px; }
+        header { padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Canvas */
+        .canvas-wrapper { width: 100%; height: 280px; background: #000; border-radius: 12px; border: 1px solid #333; margin-bottom: 20px; overflow: hidden; }
         canvas { width: 100%; height: 100%; display: block; }
+
+        /* Grids & Buttons */
+        .section-label { font-size: 0.7rem; color: #888; text-transform: uppercase; margin: 15px 0 8px; display: block; }
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; background: var(--surface); padding: 10px; border-radius: 8px; max-height: 120px; overflow-y: auto; }
+        
+        button { background: var(--surface); border: 1px solid #333; color: #fff; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 1.2rem; }
+        button.selected { border-color: var(--accent); background: rgba(0,255,157,0.1); }
+        .primary-btn { width: 100%; background: var(--accent); color: #000; font-weight: bold; padding: 16px; border: none; border-radius: 12px; margin-top: 20px; font-size: 1rem; }
+        
+        /* Input & UI */
+        input[type="password"], input[type="text"] { width: 100%; padding: 12px; background: #111; border: 1px solid #333; color: #fff; border-radius: 8px; box-sizing: border-box; margin-bottom: 10px; }
         .view { display: none; }
         .view.active { display: block; }
-        .selector-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
-        button { background: #151515; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 10px; cursor: pointer; transition: 0.2s; font-size: 1.2rem; }
-        button.selected { border-color: var(--accent); background: rgba(0,255,157,0.1); transform: scale(1.05); }
-        .primary-btn { width: 100%; background: var(--accent); color: #000; font-weight: bold; padding: 16px; border: none; border-radius: 12px; margin-top: 10px; cursor: pointer; }
-        input[type="password"], input[type="text"] { width: 100%; padding: 14px; background: #111; border: 1px solid #333; color: #fff; border-radius: 10px; box-sizing: border-box; margin-bottom: 12px; }
         .hidden { display: none !important; }
-        label { font-size: 0.7rem; color: #666; letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 8px; }
+        
+        /* Result Panel */
+        .summary-card { display: flex; justify-content: space-around; background: var(--surface); padding: 15px; border-radius: 12px; margin-top: 10px; font-size: 2rem; }
     </style>
 </head>
 <body>
-    <header style="padding: 20px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center;">
-        <h1 style="font-size: 1rem; margin: 0; letter-spacing: 2px;">SILENTSPEAK</h1>
-        <button id="btn-open-key" style="font-size: 1rem; padding: 5px 10px;">🔑 KEY</button>
+
+    <header>
+        <div onclick="location.hash=''; location.reload();" style="cursor:pointer"><b>SILENTSPEAK</b></div>
+        <button id="btn-key" style="font-size: 1rem; padding: 5px 10px;">🔑 KEY</button>
     </header>
 
     <div class="app-container">
         <section id="view-create" class="view active">
             <div class="canvas-wrapper"><canvas id="preview-canvas"></canvas></div>
-            <label>1. Select Emotion</label>
-            <div class="selector-grid">
-                <button class="emotion-btn selected" data-emotion="serenity">🌊</button>
-                <button class="emotion-btn" data-emotion="joy">✨</button>
-                <button class="emotion-btn" data-emotion="rage">🔥</button>
-                <button class="emotion-btn" data-emotion="grief">🌑</button>
+            
+            <span class="section-label">Emotion</span>
+            <div class="grid">
+                <button class="emo-btn selected" data-emo="serenity">🌊</button>
+                <button class="emo-btn" data-emo="joy">✨</button>
+                <button class="emo-btn" data-emo="rage">🔥</button>
+                <button class="emo-btn" data-emo="grief">🌑</button>
             </div>
-            <label>2. Intent Cipher</label>
-            <div class="selector-grid" id="intent-grid">
-                <button class="intent-btn" data-intent="MEET">🤝</button>
-                <button class="intent-btn" data-intent="OK">👌</button>
-                <button class="intent-btn" data-intent="HELP">🆘</button>
-                <button class="intent-btn" data-intent="SAFE">🏠</button>
-                <button class="intent-btn" data-intent="WAIT">⏳</button>
-                <button class="intent-btn" data-intent="CALL">📞</button>
-                <button class="intent-btn" data-intent="FOOD">🍕</button>
-                <button class="intent-btn" data-intent="SLEEP">😴</button>
-            </div>
-            <label>3. Intensity: <span id="intensity-val" style="color:var(--accent)">50%</span></label>
-            <input type="range" id="intensity" min="1" max="100" value="50" style="width:100%; accent-color:var(--accent); margin-bottom:20px;">
-            <button id="btn-goto-encrypt" class="primary-btn">GENERATE SECURE LINK →</button>
+
+            <span class="section-label">Intent Cipher (All Emojis)</span>
+            <div class="emoji-grid" id="intent-picker">
+                </div>
+
+            <span class="section-label">Intensity: <span id="int-val" style="color:var(--accent)">50%</span></span>
+            <input type="range" id="intensity" min="1" max="100" value="50" style="width:100%; accent-color:var(--accent)">
+
+            <button id="goto-encrypt" class="primary-btn">GENERATE SECURE LINK</button>
         </section>
 
         <section id="view-encrypt" class="view">
-            <button id="btn-back-create" style="font-size: 0.8rem; margin-bottom: 20px;">← BACK</button>
-            <h2>Encrypt Message</h2>
-            <input type="password" id="encrypt-pass" placeholder="Create a Passphrase">
-            <button id="btn-encrypt" class="primary-btn">🔒 CREATE LINK</button>
-            <div id="share-result" class="hidden" style="margin-top: 25px; padding: 20px; background: #111; border-radius: 12px; border: 1px solid #222;">
-                <label>Secure URL</label>
-                <input type="text" id="share-link" readonly>
-                <button id="btn-copy" style="width: 100%; background: #333; font-size: 0.9rem;">COPY LINK</button>
+            <button onclick="switchView('create')" style="font-size:0.8rem; margin-bottom:10px;">← BACK</button>
+            <h2>Secure with Passphrase</h2>
+            <input type="password" id="pass-en" placeholder="Enter a secret password">
+            <button id="do-encrypt" class="primary-btn">🔒 CREATE LINK</button>
+            
+            <div id="result-area" class="hidden" style="margin-top:20px;">
+                <input type="text" id="final-link" readonly>
+                <button id="copy-btn" style="width:100%; font-size:0.9rem; background:#333;">COPY URL</button>
             </div>
         </section>
 
         <section id="view-decrypt" class="view">
-            <div id="decrypt-input-area">
-                <h2>Unlock Message</h2>
-                <input type="password" id="decrypt-pass" placeholder="Enter Passphrase">
-                <button id="btn-decrypt" class="primary-btn">🔓 DECRYPT</button>
+            <div id="dec-input">
+                <h2>Unlock Visual</h2>
+                <input type="password" id="pass-de" placeholder="Enter password">
+                <button id="do-decrypt" class="primary-btn">🔓 UNLOCK</button>
             </div>
-            <div id="decrypt-display-area" class="hidden">
+            <div id="dec-output" class="hidden">
                 <div class="canvas-wrapper"><canvas id="view-canvas"></canvas></div>
-                <div style="background: #111; padding: 20px; border-radius: 12px; border: 1px solid #222;">
-                    <label>Decoded Meaning</label>
-                    <div style="display: flex; justify-content: space-around; font-size: 2rem; margin-top: 10px;">
-                        <span id="res-emotion"></span>
-                        <span id="res-intent"></span>
-                    </div>
+                <div class="summary-card">
+                    <span id="res-emo"></span>
+                    <span id="res-int"></span>
                 </div>
-                <button onclick="location.hash=''; location.reload();" class="primary-btn" style="background: #222; color: #fff; margin-top: 20px;">CREATE NEW</button>
+                <button onclick="location.hash=''; location.reload();" class="primary-btn" style="background:#222; color:#fff;">CREATE NEW</button>
             </div>
         </section>
     </div>
 
-    <div id="modal-key" class="view" style="position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:100; padding:40px; text-align:center;">
-        <h2>Visual Key</h2>
-        <div style="text-align:left; max-width:300px; margin:auto; line-height:2;">
-            <p>🌊 <b>Serenity:</b> Calm, flowing paths.</p>
-            <p>✨ <b>Joy:</b> Bouncing, circular orbits.</p>
-            <p>🔥 <b>Rage:</b> High-speed jittery triangles.</p>
-            <p>🌑 <b>Grief:</b> Slow, heavy falling orbs.</p>
-            <hr style="border:0; border-top:1px solid #333; margin:20px 0;">
-            <p>🆔 <b>Intent:</b> Small squares in bottom-left.</p>
-        </div>
-        <button onclick="document.getElementById('modal-key').style.display='none'" class="primary-btn">CLOSE</button>
-    </div>
+    <script>
+        // Configuration
+        const EMOJIS = ["🤝","👌","🆘","🏠","⏳","📞","🍕","😴","❤️","🏃","🚨","🎁","🫂","✅","❓","⚠️","🕊️","💪","🌈","📍","🔒","💰","🔥","🧊","💊","💬"];
+        const PALETTES = { serenity:['#00f2ff','#0062ff'], joy:['#fff000','#ff00d4'], rage:['#ff4800','#ff0000'], grief:['#4e008a','#000000'] };
+        
+        let state = { emo:'serenity', int:50, intent:'🤝', seed:Math.random() };
 
-    <div id="toast-container" style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);"></div>
-    <script src="app.js"></script>
+        // Fill Emoji Grid
+        const picker = document.getElementById('intent-picker');
+        EMOJIS.forEach(e => {
+            const b = document.createElement('button');
+            b.innerText = e;
+            b.onclick = () => {
+                document.querySelectorAll('#intent-picker button').forEach(btn => btn.classList.remove('selected'));
+                b.classList.add('selected');
+                state.intent = e;
+            };
+            if(e === '🤝') b.classList.add('selected');
+            picker.appendChild(b);
+        });
+
+        // UI Logic
+        function switchView(id) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-' + id).classList.add('active');
+        }
+
+        document.querySelectorAll('.emo-btn').forEach(b => {
+            b.onclick = () => {
+                document.querySelectorAll('.emo-btn').forEach(btn => btn.classList.remove('selected'));
+                b.classList.add('selected');
+                state.emo = b.dataset.emo;
+            }
+        });
+
+        document.getElementById('intensity').oninput = (e) => {
+            state.int = e.target.value;
+            document.getElementById('int-val').innerText = e.target.value + '%';
+        }
+
+        document.getElementById('goto-encrypt').onclick = () => switchView('encrypt');
+
+        // Animation Engine
+        function runAnim(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            let t = 0;
+
+            function draw() {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+                if(!canvas.width) return requestAnimationFrame(draw);
+
+                ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                ctx.fillRect(0,0,canvas.width,canvas.height);
+
+                const colors = PALETTES[state.emo];
+                const factor = state.int / 100;
+
+                // Draw Intent Logic
+                ctx.fillStyle = colors[0];
+                const intentIdx = EMOJIS.indexOf(state.intent) + 1;
+                for(let j=0; j<intentIdx; j++) ctx.fillRect(10+(j*6), canvas.height-15, 4, 4);
+
+                // Draw Particles
+                for(let i=0; i<15; i++) {
+                    ctx.fillStyle = colors[i%2];
+                    ctx.beginPath();
+                    let x, y;
+                    if(state.emo === 'serenity') {
+                        x = canvas.width/2 + Math.sin(t+i)*100*factor;
+                        y = canvas.height/2 + Math.cos(t*0.5+i)*80;
+                    } else if(state.emo === 'joy') {
+                        x = canvas.width/2 + Math.cos(t*2+i)*(50+i*10)*factor;
+                        y = canvas.height/2 + Math.sin(t*2+i)*(50+i*10)*factor;
+                    } else if(state.emo === 'rage') {
+                        x = Math.random()*canvas.width;
+                        y = Math.random()*canvas.height;
+                    } else {
+                        x = (canvas.width/15)*i;
+                        y = (t*100 + i*50) % canvas.height;
+                    }
+                    ctx.arc(x,y, 5 + factor*10, 0, Math.PI*2);
+                    ctx.fill();
+                }
+                t += 0.02;
+                requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+        // Crypto
+        async function handleEnc() {
+            const pass = document.getElementById('pass-en').value;
+            if(!pass) return alert("Need Password");
+            const data = JSON.stringify(state);
+            const enc = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            const key = await crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:10000, hash:"SHA-256"}, keyMaterial, {name:"AES-GCM", length:256}, false, ["encrypt"]);
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const cipher = await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, enc.encode(data));
+            
+            const pack = { c:btoa(String.fromCharCode(...new Uint8Array(cipher))), s:btoa(String.fromCharCode(...new Uint8Array(salt))), v:btoa(String.fromCharCode(...new Uint8Array(iv))) };
+            document.getElementById('final-link').value = window.location.origin + window.location.pathname + '#' + btoa(JSON.stringify(pack));
+            document.getElementById('result-area').classList.remove('hidden');
+        }
+
+        async function handleDec() {
+            try {
+                const pass = document.getElementById('pass-de').value;
+                const pack = JSON.parse(atob(window.location.hash.substring(1)));
+                const enc = new TextEncoder();
+                const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
+                const key = await crypto.subtle.deriveKey({name:"PBKDF2", salt:new Uint8Array(atob(pack.s).split("").map(c=>c.charCodeAt(0))), iterations:10000, hash:"SHA-256"}, keyMaterial, {name:"AES-GCM", length:256}, false, ["decrypt"]);
+                const dec = await crypto.subtle.decrypt({name:"AES-GCM", iv:new Uint8Array(atob(pack.v).split("").map(c=>c.charCodeAt(0)))}, key, new Uint8Array(atob(pack.c).split("").map(c=>c.charCodeAt(0))));
+                const res = JSON.parse(new TextDecoder().decode(dec));
+                state = res;
+                document.getElementById('dec-input').classList.add('hidden');
+                document.getElementById('dec-output').classList.remove('hidden');
+                document.getElementById('res-emo').innerText = {serenity:'🌊', joy:'✨', rage:'🔥', grief:'🌑'}[res.emo];
+                document.getElementById('res-int').innerText = res.intent;
+                runAnim('view-canvas');
+            } catch(e) { alert("Wrong Password"); }
+        }
+
+        document.getElementById('do-encrypt').onclick = handleEnc;
+        document.getElementById('do-decrypt').onclick = handleDec;
+        document.getElementById('copy-btn').onclick = () => { document.getElementById('final-link').select(); document.execCommand('copy'); alert("Copied!"); };
+        document.getElementById('btn-key').onclick = () => alert("Visual Dictionary:\n🌊 Flow | ✨ Orbit | 🔥 Chaos | 🌑 Rain\nMarks in corner = Intent Cipher");
+
+        // Start
+        runAnim('preview-canvas');
+        if(window.location.hash) switchView('decrypt');
+    </script>
 </body>
 </html>
